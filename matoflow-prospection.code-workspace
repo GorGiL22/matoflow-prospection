@@ -1,0 +1,20 @@
+{
+  "folders": [
+    {
+      "name": "MatoFlow Prospection",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "typescript.tsdk": "node_modules/typescript/lib"
+  },
+  "extensions": {
+    "recommendations": [
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+      "bradlc.vscode-tailwindcss",
+      "supabase.supabase-vscode"
+    ]
+  }
+}
