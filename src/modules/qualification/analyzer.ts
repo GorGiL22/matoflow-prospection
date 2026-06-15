@@ -30,7 +30,9 @@ export interface QualificationInput {
   companyName: string;
   website?: string | null;
   city?: string | null;
+  description?: string | null;
   websiteContent?: string | null;
+  siretData?: string | null;
 }
 
 export async function analyzeProspect(
@@ -40,8 +42,11 @@ export async function analyzeProspect(
 Entreprise : ${input.companyName}
 Ville : ${input.city ?? "Non renseignée"}
 Site web : ${input.website ?? "Non renseigné"}
+Description / données SIRENE : ${input.description ?? "Non renseignée"}
 
-${input.websiteContent ? `Contenu du site :\n${input.websiteContent.slice(0, 4000)}` : "Aucun contenu de site disponible — déduis ce que tu peux du nom et de la ville."}
+${input.websiteContent ?? "Aucune analyse de site disponible."}
+
+Analyse UNIQUEMENT à partir de ces données réelles. Ne pas inventer de services non mentionnés.
 `.trim();
 
   const response = await chatCompletion(

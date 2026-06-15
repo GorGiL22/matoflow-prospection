@@ -1,7 +1,23 @@
 /**
- * Module Scraping — V2
- * Recherche automatisée de prospects via Google Maps, annuaires, etc.
+ * Module Scraping — recherche Google Maps
  */
+
+export type {
+  GoogleMapsPlaceResult,
+  GoogleMapsSearchConfig,
+} from "./google-maps";
+export {
+  enrichPlacesWithEmails,
+  searchLandscapersOnGoogleMaps,
+} from "./google-maps";
+
+export type { UnepCompanyResult, UnepSearchConfig } from "./unep";
+export {
+  searchUnepLandscapersInArea,
+  searchUnepLandscapersInLyon,
+  searchUnepLandscapersInParis,
+} from "./unep";
+export type { UnepSearchArea } from "./unep-areas";
 
 export interface ScrapingConfig {
   query: string;
@@ -15,10 +31,4 @@ export interface ScrapingResult {
   website?: string;
   city?: string;
   googleReviewsCount?: number;
-}
-
-export class ScrapingModule {
-  async search(_config: ScrapingConfig): Promise<ScrapingResult[]> {
-    throw new Error("Module scraping non implémenté — prévu en V2");
-  }
 }

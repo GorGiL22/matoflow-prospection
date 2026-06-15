@@ -2,22 +2,16 @@ export const PROSPECT_STATUSES = [
   "nouveau",
   "contacte",
   "relance",
+  "interesse",
+  "chaud",
   "rdv",
   "client",
   "refuse",
 ] as const;
 
-export const PROSPECT_SOURCES = [
-  "manuel",
-  "google_maps",
-  "scraping",
-  "import_csv",
-  "api",
-  "linkedin",
-] as const;
+export const PIPELINE_STATUSES = PROSPECT_STATUSES;
 
 export type ProspectStatus = (typeof PROSPECT_STATUSES)[number];
-export type ProspectSource = (typeof PROSPECT_SOURCES)[number];
 
 export interface AiScoreDetails {
   is_landscaping_company?: boolean;
@@ -32,59 +26,74 @@ export interface AiScoreDetails {
 
 export interface Prospect {
   id: string;
-  company_name: string;
+  nomEntreprise: string;
   siret: string | null;
-  phone: string | null;
+  telephone: string | null;
   email: string | null;
-  website: string | null;
-  city: string | null;
-  google_reviews_count: number;
-  status: ProspectStatus;
-  source: ProspectSource;
-  ai_score: number | null;
-  ai_score_details: AiScoreDetails;
-  website_domain: string | null;
-  email_normalized: string | null;
-  siret_normalized: string | null;
-  generated_email: string | null;
-  generated_linkedin: string | null;
-  generated_call_script: string | null;
-  content_generated_at: string | null;
-  created_at: string;
-  updated_at: string;
-  last_contacted_at: string | null;
+  siteWeb: string | null;
+  ville: string | null;
+  description: string | null;
+  avisGoogle: number;
+  scoreIA: number | null;
+  statut: ProspectStatus;
+  dateCreation: string;
+  dateModification: string;
+  siretNormalise: string | null;
+  emailNormalise: string | null;
+  domaineSite: string | null;
+  detailsScoreIA: AiScoreDetails;
+  emailGenere: string | null;
+  linkedinGenere: string | null;
+  scriptAppelGenere: string | null;
 }
 
 export interface ProspectInsert {
-  company_name: string;
+  nomEntreprise: string;
   siret?: string | null;
-  phone?: string | null;
+  telephone?: string | null;
   email?: string | null;
-  website?: string | null;
-  city?: string | null;
-  google_reviews_count?: number;
-  source?: ProspectSource;
-  status?: ProspectStatus;
-  ai_score?: number | null;
-  ai_score_details?: AiScoreDetails;
+  siteWeb?: string | null;
+  ville?: string | null;
+  description?: string | null;
+  unepId?: string | null;
+  unepSlug?: string | null;
+  avisGoogle?: number;
+  scoreIA?: number | null;
+  statut?: ProspectStatus;
+  detailsScoreIA?: AiScoreDetails;
 }
 
 export interface ProspectUpdate extends Partial<ProspectInsert> {
-  status?: ProspectStatus;
-  generated_email?: string | null;
-  generated_linkedin?: string | null;
-  generated_call_script?: string | null;
-  last_contacted_at?: string | null;
+  statut?: ProspectStatus;
+  emailGenere?: string | null;
+  linkedinGenere?: string | null;
+  scriptAppelGenere?: string | null;
+}
+
+export interface ProspectNote {
+  id: string;
+  prospectId: string;
+  contenu: string;
+  dateCreation: string;
+}
+
+export interface ProspectActivity {
+  id: string;
+  prospectId: string;
+  type: string;
+  description: string;
+  metadata: Record<string, unknown> | null;
+  dateCreation: string;
 }
 
 export interface ProspectQualification {
   id: string;
-  prospect_id: string;
+  prospectId: string;
   score: number;
-  criteria: AiScoreDetails;
-  website_analysis: Record<string, unknown>;
-  model_version: string;
-  created_at: string;
+  criteres: AiScoreDetails;
+  analyseSite: Record<string, unknown> | null;
+  versionModele: string;
+  dateCreation: string;
 }
 
 export interface GeneratedContent {
@@ -94,31 +103,57 @@ export interface GeneratedContent {
 }
 
 export interface DashboardStats {
-  total_prospects: number;
+  totalProspects: number;
   nouveaux: number;
+  clients: number;
+  tauxConversion: number;
   contactes: number;
   relances: number;
   rdv: number;
-  clients: number;
   refuses: number;
   prioritaires: number;
-  score_moyen: number | null;
+  scoreMoyen: number | null;
 }
 
 export const STATUS_LABELS: Record<ProspectStatus, string> = {
-  nouveau: "Nouveau",
+  nouveau: "À contacter",
   contacte: "Contacté",
   relance: "Relancé",
+  interesse: "Intéressé",
+  chaud: "Prospect chaud",
   rdv: "RDV",
   client: "Client",
   refuse: "Refusé",
 };
 
-export const SOURCE_LABELS: Record<ProspectSource, string> = {
-  manuel: "Manuel",
-  google_maps: "Google Maps",
-  scraping: "Scraping",
-  import_csv: "Import CSV",
-  api: "API",
-  linkedin: "LinkedIn",
+export const STATUS_SHORT_LABELS: Record<ProspectStatus, string> = {
+  nouveau: "À contacter",
+  contacte: "Contacté",
+  relance: "Relancé",
+  interesse: "Intéressé",
+  chaud: "Chaud",
+  rdv: "RDV",
+  client: "Client",
+  refuse: "Refusé",
+};
+
+export const STATUS_ACTIVE_CLASSES: Record<ProspectStatus, string> = {
+  nouveau: "bg-slate-600 text-white",
+  contacte: "bg-blue-600 text-white",
+  relance: "bg-amber-600 text-white",
+  interesse: "bg-violet-600 text-white",
+  chaud: "bg-orange-600 text-white",
+  rdv: "bg-emerald-600 text-white",
+  client: "bg-green-700 text-white",
+  refuse: "bg-red-600 text-white",
+};
+
+export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+  creation: "Création",
+  mise_a_jour: "Mise à jour",
+  changement_statut: "Changement de statut",
+  qualification: "Qualification IA",
+  contenu: "Contenu généré",
+  note: "Note ajoutée",
+  campagne_email: "Campagne email",
 };

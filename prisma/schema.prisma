@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum StatutProspect {
+  NOUVEAU
+  CONTACTE
+  RELANCE
+  INTERESSE
+  CHAUD
+  RDV
+  CLIENT
+  REFUSE
+}
+
+model Prospect {
+  id               String         @id @default(cuid())
+  nomEntreprise    String
+  siret            String?
+  telephone        String?
+  email            String?
+  siteWeb          String?
+  ville            String?
+  description      String?
+  avisGoogle       Int            @default(0)
+  scoreIA          Int?
+  statut           StatutProspect @default(NOUVEAU)
+  dateCreation     DateTime       @default(now())
+  dateModification DateTime       @updatedAt
+
+  siretNormalise    String? @unique
+  emailNormalise    String? @unique
+  domaineSite       String? @unique
+  unepId            String? @unique
+  unepSlug          String?
+  detailsScoreIA    String?
+  emailGenere       String?
+  linkedinGenere    String?
+  scriptAppelGenere String?
+
+  notes          Note[]
+  activites      Activite[]
+  qualifications QualificationIA[]
+  campaignEmails   CampaignEmail[]
+
+  @@index([statut])
+  @@index([scoreIA])
+  @@index([dateCreation])
+  @@index([unepSlug])
+}
+
+model Note {
+  id           String   @id @default(cuid())
+  prospectId   String
+  contenu      String
+  dateCreation DateTime @default(now())
+  prospect     Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId, dateCreation])
+}
+
+model Activite {
+  id           String   @id @default(cuid())
+  prospectId   String
+  type         String
+  description  String
+  metadata     String?
+  dateCreation DateTime @default(now())
+  prospect     Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId, dateCreation])
+}
+
+model QualificationIA {
+  id            String   @id @default(cuid())
+  prospectId    String
+  score         Int
+  criteres      String
+  analyseSite   String?
+  versionModele String   @default("gpt-4o-mini")
+  dateCreation  DateTime @default(now())
+  prospect      Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId, dateCreation])
+}
+
+model UnepSearchJob {
+  id             String   @id @default(cuid())
+  area           String
+  status         String   @default("running")
+  config         String
+  results        String   @default("[]")
+  logs           String   @default("[]")
+  progress       String?
+  stepsState     String   @default("{}")
+  errorMessage   String?
+  resume         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([area, status])
+}
+
+enum EmailCampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum CampaignContentMode {
+  AI
+  GENERIC
+}
+
+enum CampaignEmailStatus {
+  DRAFT
+  SCHEDULED
+  SENT
+  FAILED
+  OPENED
+  REPLIED
+}
+
+model EmailCampaign {
+  id                     String              @id @default(cuid())
+  nom                    String
+  statut                 EmailCampaignStatus @default(DRAFT)
+  contentMode            CampaignContentMode @default(AI)
+  genericSubjectTemplate String?
+  genericBodyTemplate    String?
+  dailyLimit             Int                 @default(25)
+  minDelayMinutes  Int                 @default(5)
+  maxDelayMinutes  Int                 @default(15)
+  sentTodayCount   Int                 @default(0)
+  sentTodayDate    String?
+  lastSentAt       DateTime?
+  dateCreation     DateTime            @default(now())
+  dateModification DateTime            @updatedAt
+
+  emails CampaignEmail[]
+
+  @@index([statut])
+}
+
+model CampaignEmail {
+  id                  String              @id @default(cuid())
+  campaignId          String
+  prospectId          String
+  subject             String?
+  body                String?
+  personalizationHook String?
+  analysisSummary     String?
+  statut              CampaignEmailStatus @default(DRAFT)
+  scheduledAt         DateTime?
+  sentAt              DateTime?
+  openedAt            DateTime?
+  repliedAt           DateTime?
+  errorMessage        String?
+  dateCreation        DateTime            @default(now())
+  dateModification    DateTime            @updatedAt
+
+  campaign EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  prospect Prospect      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, prospectId])
+  @@index([campaignId, statut])
+  @@index([statut, scheduledAt])
+  @@index([prospectId])
+}

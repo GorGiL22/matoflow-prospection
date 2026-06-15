@@ -1,9 +1,9 @@
 import {
   Users,
   Sparkles,
-  Star,
-  Phone,
   CheckCircle2,
+  TrendingUp,
+  Star,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import type { DashboardStats } from "@/types/prospect";
@@ -14,39 +14,39 @@ interface StatsCardsProps {
 
 const cards = [
   {
-    key: "total_prospects" as const,
+    key: "totalProspects" as const,
     label: "Total prospects",
     icon: Users,
-    color: "text-zinc-600",
-    bg: "bg-zinc-100",
+    iconClass: "text-muted",
+    bg: "bg-surface-muted",
   },
   {
     key: "nouveaux" as const,
-    label: "Nouveaux",
+    label: "À contacter",
     icon: Sparkles,
-    color: "text-blue-600",
-    bg: "bg-blue-50",
+    iconClass: "text-accent",
+    bg: "bg-accent-muted",
+  },
+  {
+    key: "clients" as const,
+    label: "Clients",
+    icon: CheckCircle2,
+    iconClass: "text-brand",
+    bg: "bg-brand-muted",
+  },
+  {
+    key: "tauxConversion" as const,
+    label: "Taux de conversion",
+    icon: TrendingUp,
+    iconClass: "text-brand-light",
+    bg: "bg-brand-muted",
   },
   {
     key: "prioritaires" as const,
     label: "Prioritaires",
     icon: Star,
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-  },
-  {
-    key: "contactes" as const,
-    label: "Contactés",
-    icon: Phone,
-    color: "text-violet-600",
-    bg: "bg-violet-50",
-  },
-  {
-    key: "clients" as const,
-    label: "Clients obtenus",
-    icon: CheckCircle2,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
+    iconClass: "text-amber-600 dark:text-amber-400",
+    bg: "bg-amber-50 dark:bg-amber-950",
   },
 ];
 
@@ -57,15 +57,17 @@ export function StatsCards({ stats }: StatsCardsProps) {
         <Card key={card.key} className="p-4">
           <div className="flex items-center gap-3">
             <div
-              className={`flex h-10 w-10 items-center justify-center rounded-lg ${card.bg}`}
+              className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.bg}`}
             >
-              <card.icon className={`h-5 w-5 ${card.color}`} />
+              <card.icon className={`h-5 w-5 ${card.iconClass}`} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-zinc-900">
-                {stats[card.key]}
+              <p className="font-mono text-2xl font-bold tracking-tight text-foreground">
+                {card.key === "tauxConversion"
+                  ? `${stats[card.key]}%`
+                  : stats[card.key]}
               </p>
-              <p className="text-xs text-zinc-500">{card.label}</p>
+              <p className="text-xs text-muted">{card.label}</p>
             </div>
           </div>
         </Card>

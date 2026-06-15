@@ -1,30 +1,32 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
-import type { GeneratedContent } from "@/types/prospect";
 import { ProspectRepository } from "@/modules/prospects/repository";
+import type { GeneratedContent } from "@/types/prospect";
 import { generateCommercialContent } from "./generator";
 
+const repository = new ProspectRepository();
+
 export class ContentService {
-  private repository: ProspectRepository;
-
-  constructor(private supabase: SupabaseClient<Database>) {
-    this.repository = new ProspectRepository(supabase);
-  }
-
   async generateForProspect(prospectId: string): Promise<GeneratedContent> {
-    const prospect = await this.repository.findById(prospectId);
+    const prospect = await repository.findById(prospectId);
     if (!prospect) {
       throw new Error("Prospect introuvable");
     }
 
     const content = await generateCommercialContent(prospect);
 
-    await this.repository.update(prospectId, {
-      generated_email: content.email,
-      generated_linkedin: content.linkedin,
-      generated_call_script: content.callScript,
+    await repository.update(prospectId, {
+      emailGenere: content.email,
+      linkedinGenere: content.linkedin,
+      scriptAppelGenere: content.callScript,
     });
+
+    await repository.createActivity(
+      prospectId,
+      "contenu",
+      "Contenu commercial généré par l'IA"
+    );
 
     return content;
   }
 }
+
+export const contentService = new ContentService();

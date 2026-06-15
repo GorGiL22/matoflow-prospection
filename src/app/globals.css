@@ -1,18 +1,161 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #fafafa;
-  --foreground: #18181b;
+  /* Brand — forêt MatoFlow */
+  --brand: #059669;
+  --brand-hover: #047857;
+  --brand-light: #10b981;
+  --brand-muted: #ecfdf5;
+  --brand-subtle: #d1fae5;
+  --brand-foreground: #ffffff;
+
+  /* Accent — intelligence / IA (teal sage) */
+  --accent: #0d9488;
+  --accent-hover: #0f766e;
+  --accent-muted: #f0fdfa;
+  --accent-subtle: #ccfbf1;
+  --accent-foreground: #ffffff;
+
+  /* Surfaces chaudes */
+  --background: #f6f7f4;
+  --foreground: #1a2118;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-muted: #eef1eb;
+  --border: #dde3d6;
+  --border-subtle: #e8ece3;
+  --muted: #5f6b58;
+  --muted-foreground: #8a9682;
+
+  /* Sidebar */
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #e4ebe0;
+  --sidebar-accent: #f0f7f2;
+
+  /* Ombres organiques */
+  --shadow-sm: 0 1px 2px rgba(26, 33, 24, 0.04), 0 1px 3px rgba(26, 33, 24, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(26, 33, 24, 0.06), 0 2px 4px -2px rgba(26, 33, 24, 0.04);
+  --shadow-lg: 0 10px 25px -5px rgba(26, 33, 24, 0.08), 0 4px 10px -4px rgba(26, 33, 24, 0.04);
+  --shadow-brand: 0 4px 14px -3px rgba(5, 150, 105, 0.25);
+
+  --radius-sm: 0.5rem;
+  --radius: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+}
+
+.dark {
+  --brand: #34d399;
+  --brand-hover: #6ee7b7;
+  --brand-light: #10b981;
+  --brand-muted: #064e3b;
+  --brand-subtle: #065f46;
+  --brand-foreground: #022c22;
+
+  --accent: #2dd4bf;
+  --accent-hover: #5eead4;
+  --accent-muted: #134e4a;
+  --accent-subtle: #115e59;
+  --accent-foreground: #042f2e;
+
+  --background: #0b0f0a;
+  --foreground: #ecf2e8;
+  --surface: #131712;
+  --surface-raised: #1a2018;
+  --surface-muted: #1f261c;
+  --border: #2a3326;
+  --border-subtle: #232b21;
+  --muted: #9aa892;
+  --muted-foreground: #6b7564;
+
+  --sidebar-bg: #0e120d;
+  --sidebar-border: #1f261c;
+  --sidebar-accent: #152018;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --shadow-brand: 0 4px 20px -3px rgba(52, 211, 153, 0.15);
 }
 
 @theme inline {
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-light: var(--brand-light);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-foreground: var(--brand-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-foreground: var(--accent-foreground);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent: var(--sidebar-accent);
+
+  --font-sans: var(--font-jakarta);
+  --font-mono: var(--font-jetbrains);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-brand: var(--shadow-brand);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* Fond principal avec texture subtile */
+.app-background {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(5, 150, 105, 0.06), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(13, 148, 136, 0.04), transparent);
+}
+
+.dark .app-background {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(52, 211, 153, 0.05), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(45, 212, 191, 0.03), transparent);
+}
+
+/* Scrollbar discrète */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
 }

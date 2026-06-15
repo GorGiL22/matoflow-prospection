@@ -1,47 +1,43 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
-import type { Prospect } from "@/types/prospect";
 import { AI_CONFIG } from "@/config/constants";
 import { ProspectRepository } from "@/modules/prospects/repository";
+import type { Prospect } from "@/types/prospect";
 import { analyzeProspect } from "./analyzer";
 import { computeAiScore } from "./scorer";
 
+const repository = new ProspectRepository();
+
 export class QualificationService {
-  private repository: ProspectRepository;
-
-  constructor(private supabase: SupabaseClient<Database>) {
-    this.repository = new ProspectRepository(supabase);
-  }
-
   async qualifyProspect(
     prospectId: string,
     websiteContent?: string | null
   ): Promise<Prospect> {
-    const prospect = await this.repository.findById(prospectId);
+    const prospect = await repository.findById(prospectId);
     if (!prospect) {
       throw new Error("Prospect introuvable");
     }
 
     const criteria = await analyzeProspect({
-      companyName: prospect.company_name,
-      website: prospect.website,
-      city: prospect.city,
+      companyName: prospect.nomEntreprise,
+      website: prospect.siteWeb,
+      city: prospect.ville,
+      description: prospect.description,
       websiteContent,
     });
 
     const score = computeAiScore(criteria);
 
-    await this.supabase.from("prospect_qualifications").insert({
-      prospect_id: prospectId,
+    await repository.addQualification(prospectId, {
       score,
-      criteria,
-      website_analysis: { website_content_length: websiteContent?.length ?? 0 },
-      model_version: AI_CONFIG.model,
+      criteres: criteria,
+      analyseSite: { website_content_length: websiteContent?.length ?? 0 },
+      versionModele: AI_CONFIG.model,
     });
 
-    return this.repository.update(prospectId, {
-      ai_score: score,
-      ai_score_details: criteria,
+    return repository.update(prospectId, {
+      scoreIA: score,
+      detailsScoreIA: criteria,
     });
   }
 }
+
+export const qualificationService = new QualificationService();
