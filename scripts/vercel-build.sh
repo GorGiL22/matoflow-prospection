@@ -27,6 +27,9 @@ if [ -z "${DIRECT_URL:-}" ]; then
   exit 1
 fi
 
+# Schéma SQLite en local, PostgreSQL sur Vercel
+node scripts/patch-schema-postgres.mjs
+
 npx prisma generate
 
 # Les migrations ne supportent pas le pooler (advisory lock P1002)
