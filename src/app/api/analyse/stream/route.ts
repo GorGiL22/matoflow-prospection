@@ -5,6 +5,7 @@ import type { AnalysisStreamEvent } from "@/types/analysis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const bodySchema = z.object({
   prospectId: z.string().min(1),
