@@ -5,8 +5,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function runProcess() {
-  const result = await campaignService.processQueue();
-  return Response.json(result);
+  try {
+    const result = await campaignService.processQueue();
+    return Response.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erreur file d'envoi";
+    console.error("[campaigns/process]", error);
+    return Response.json({ processed: false, error: message }, { status: 500 });
+  }
 }
 
 /** Cron Vercel uniquement (GET + CRON_SECRET). */
