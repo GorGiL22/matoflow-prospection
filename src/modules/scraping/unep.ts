@@ -15,7 +15,7 @@ import {
   createUnepStepEvent,
   type UnepSearchStreamEvent,
 } from "@/types/unep-search";
-import { UNEP_MAX_RESULTS_PER_RUN } from "@/config/constants";
+import { UNEP_MAX_RESULTS_PER_RUN, UNEP_ENRICH_CONCURRENCY, UNEP_ENRICH_CHUNK_DELAY_MS } from "@/config/constants";
 
 export interface UnepSearchConfig {
   maxResults?: number;
@@ -88,7 +88,7 @@ async function enrichUntilAreaMatches(
   }
 ): Promise<{ stoppedEarly: boolean; cancelled?: boolean }> {
   const areaDefinition = getUnepAreaDefinition(config.area);
-  const concurrency = 5;
+  const concurrency = UNEP_ENRICH_CONCURRENCY;
 
   for (let index = 0; index < summaries.length; index += concurrency) {
     if (config.shouldStop?.()) {
@@ -254,7 +254,7 @@ async function enrichUntilAreaMatches(
     }
 
     if (index + concurrency < summaries.length) {
-      await delay(120);
+      await delay(UNEP_ENRICH_CHUNK_DELAY_MS);
     }
   }
 

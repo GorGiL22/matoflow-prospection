@@ -10,19 +10,8 @@ function createPrismaClient() {
   });
 }
 
-function getPrismaClient(): PrismaClient {
-  const existing = globalForPrisma.prisma as PrismaClient | undefined;
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-  if (existing) {
-    if ("unepSearchJob" in existing) {
-      return existing;
-    }
-    void (existing as PrismaClient).$disconnect();
-  }
-
-  const client = createPrismaClient();
-  globalForPrisma.prisma = client;
-  return client;
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
 }
-
-export const prisma = getPrismaClient();

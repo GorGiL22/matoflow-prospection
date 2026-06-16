@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { prospectService } from "@/modules/prospects/service";
 import { ProspectTable } from "@/components/prospects/prospect-table";
+import { ProspectsCrmPanel } from "@/components/prospects/prospects-crm-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -32,6 +33,8 @@ export default async function ProspectsPage() {
           </Link>
         }
       />
+
+      <ProspectsCrmPanel />
 
       <ProspectTable prospects={prospects} />
     </div>

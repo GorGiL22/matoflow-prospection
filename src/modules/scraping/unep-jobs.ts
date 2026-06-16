@@ -66,6 +66,7 @@ function toSnapshot(record: {
       startPage: 1,
       includeMetropole: false,
       excludeExisting: true,
+      autoChain: false,
     }),
     results: parseJson<UnepCompanyResult[]>(record.results, []),
     logs: parseJson<UnepSearchLogEvent[]>(record.logs, []),
@@ -123,8 +124,15 @@ export async function getActiveUnepSearchJob(
 
 function buildAreaScanSummary(
   area: UnepSearchArea,
-  latest: UnepSearchJobSnapshot | null,
-  isRunning: boolean
+  latest: {
+    status: UnepSearchJobStatus;
+    updatedAt: string;
+    progress: UnepSearchJobProgress | null;
+    resume: UnepSearchJobResume | null;
+    importedCount: number;
+  } | null,
+  isRunning: boolean,
+  isFullyScanned: boolean
 ): UnepAreaScanSummary {
   if (!latest) {
     return {
@@ -147,37 +155,76 @@ function buildAreaScanSummary(
   return {
     area,
     isRunning,
-    hasBeenScanned: latest !== null,
+    hasBeenScanned: true,
     lastStatus: latest.status,
     lastUpdatedAt: latest.updatedAt,
-    importedCount: latest.results.length,
-    isFullyScanned: Boolean(resume?.exhausted),
-    canResume,
-    resumeFromPage: resume?.nextPage ?? null,
+    importedCount: latest.importedCount,
+    isFullyScanned,
+    canResume: isFullyScanned ? false : canResume,
+    resumeFromPage: isFullyScanned ? null : resume?.nextPage ?? null,
     totalPages: resume?.totalPages ?? latest.progress?.totalPages ?? null,
   };
+}
+
+function isJobFullyScanned(
+  status: string,
+  resume: UnepSearchJobResume | null
+): boolean {
+  return status === "completed" && Boolean(resume?.exhausted);
 }
 
 export async function getUnepAreaScanSummaries(): Promise<UnepAreaScanSummary[]> {
   const records = await prisma.unepSearchJob.findMany({
     orderBy: { updatedAt: "desc" },
+    select: {
+      area: true,
+      status: true,
+      progress: true,
+      resume: true,
+      updatedAt: true,
+    },
   });
 
-  const latestByArea = new Map<string, ReturnType<typeof toSnapshot>>();
+  const latestByArea = new Map<
+    string,
+    {
+      status: UnepSearchJobStatus;
+      updatedAt: string;
+      progress: UnepSearchJobProgress | null;
+      resume: UnepSearchJobResume | null;
+      importedCount: number;
+    }
+  >();
+  const fullyScannedAreas = new Set<string>();
   const runningByArea = new Set<string>();
 
   for (const record of records) {
+    const resume = parseJson<UnepSearchJobResume | null>(record.resume, null);
+    const progress = parseJson<UnepSearchJobProgress | null>(
+      record.progress,
+      null
+    );
+
+    if (isJobFullyScanned(record.status, resume)) {
+      fullyScannedAreas.add(record.area);
+    }
+
     if (record.status === "running") {
       const staleMs = 2 * 60 * 1000;
-      const isStale =
-        !stopFlags.has(record.id) &&
-        Date.now() - record.updatedAt.getTime() > staleMs;
+      const isStale = Date.now() - record.updatedAt.getTime() > staleMs;
       if (!isStale) {
         runningByArea.add(record.area);
       }
     }
+
     if (!latestByArea.has(record.area)) {
-      latestByArea.set(record.area, toSnapshot(record));
+      latestByArea.set(record.area, {
+        status: record.status as UnepSearchJobStatus,
+        updatedAt: record.updatedAt.toISOString(),
+        progress,
+        resume,
+        importedCount: progress?.matchesFound ?? 0,
+      });
     }
   }
 
@@ -185,7 +232,8 @@ export async function getUnepAreaScanSummaries(): Promise<UnepAreaScanSummary[]>
     buildAreaScanSummary(
       area,
       latestByArea.get(area) ?? null,
-      runningByArea.has(area)
+      runningByArea.has(area),
+      fullyScannedAreas.has(area)
     )
   );
 }
@@ -214,6 +262,7 @@ export async function buildNextUnepAutoJob(): Promise<{
         startPage,
         includeMetropole: definition.includeMetropoleDefault,
         excludeExisting: true,
+        autoChain: true,
       },
     };
   }
@@ -232,9 +281,43 @@ export async function getUnepAreaScanSummary(
     }),
   ]);
 
-  const latest = latestRecord ? toSnapshot(latestRecord) : null;
+  const latest = latestRecord
+    ? {
+        status: latestRecord.status as UnepSearchJobStatus,
+        updatedAt: latestRecord.updatedAt.toISOString(),
+        progress: parseJson<UnepSearchJobProgress | null>(
+          latestRecord.progress,
+          null
+        ),
+        resume: parseJson<UnepSearchJobResume | null>(latestRecord.resume, null),
+        importedCount:
+          parseJson<UnepSearchJobProgress | null>(latestRecord.progress, null)
+            ?.matchesFound ?? 0,
+      }
+    : null;
 
-  return buildAreaScanSummary(area, latest, Boolean(running));
+  const isFullyScanned = latest
+    ? isJobFullyScanned(latest.status, latest.resume)
+    : false;
+
+  if (!isFullyScanned && latestRecord) {
+    const completed = await prisma.unepSearchJob.findFirst({
+      where: { area, status: "completed" },
+      orderBy: { updatedAt: "desc" },
+      select: { resume: true },
+    });
+    if (
+      completed &&
+      isJobFullyScanned(
+        "completed",
+        parseJson<UnepSearchJobResume | null>(completed.resume, null)
+      )
+    ) {
+      return buildAreaScanSummary(area, latest, Boolean(running), true);
+    }
+  }
+
+  return buildAreaScanSummary(area, latest, Boolean(running), isFullyScanned);
 }
 
 export async function createUnepSearchJob(
@@ -252,6 +335,7 @@ export async function createUnepSearchJob(
     startPage: input.startPage,
     includeMetropole: input.includeMetropole,
     excludeExisting: input.excludeExisting,
+    autoChain: Boolean(input.autoChain),
   };
 
   const record = await prisma.unepSearchJob.create({
@@ -439,6 +523,7 @@ async function runUnepSearchJob(jobId: string): Promise<void> {
     startPage: 1,
     includeMetropole: false,
     excludeExisting: true,
+    autoChain: false,
   });
 
   const state = {
@@ -511,5 +596,16 @@ async function runUnepSearchJob(jobId: string): Promise<void> {
       status: finalStatus,
       errorMessage,
     });
+
+    if (finalStatus === "completed" && config.autoChain) {
+      try {
+        const next = await buildNextUnepAutoJob();
+        if (next) {
+          await createUnepSearchJob(next.input);
+        }
+      } catch {
+        // Ville suivante déjà lancée côté client ou indisponible.
+      }
+    }
   }
 }

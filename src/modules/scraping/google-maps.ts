@@ -3,6 +3,7 @@ import {
   searchPlacesText,
   type GooglePlaceRaw,
 } from "@/lib/google-places";
+import { GOOGLE_MAPS_ENRICH_CONCURRENCY } from "@/config/constants";
 import { analyzeWebsite } from "@/modules/analysis/website-analyzer";
 
 export interface GoogleMapsSearchConfig {
@@ -49,13 +50,14 @@ export async function searchLandscapersOnGoogleMaps(
   const perQuery = Math.ceil(maxResults / SEARCH_QUERIES.length);
   const seen = new Map<string, GoogleMapsPlaceResult>();
 
-  for (const keyword of SEARCH_QUERIES) {
-    if (seen.size >= maxResults) break;
+  const responses = await Promise.all(
+    SEARCH_QUERIES.map((keyword) =>
+      searchPlacesText(`${keyword} ${ville}`, { maxResults: perQuery })
+    )
+  );
 
-    const textQuery = `${keyword} ${ville}`;
-    const response = await searchPlacesText(textQuery, {
-      maxResults: perQuery,
-    });
+  for (const response of responses) {
+    if (seen.size >= maxResults) break;
 
     for (const place of response.places ?? []) {
       const mapped = mapPlace(place, ville);
@@ -85,15 +87,24 @@ export async function enrichPlacesWithEmails(
   places: GoogleMapsPlaceResult[],
   onProgress?: (current: number, total: number) => void
 ): Promise<GoogleMapsPlaceResult[]> {
-  const enriched: GoogleMapsPlaceResult[] = [];
+  const enriched = [...places];
+  const concurrency = GOOGLE_MAPS_ENRICH_CONCURRENCY;
+  let processed = 0;
 
-  for (let i = 0; i < places.length; i++) {
-    onProgress?.(i + 1, places.length);
-    const place = places[i];
-    if (place.siteWeb && !place.email) {
-      enriched.push(await enrichPlaceWithWebsiteEmail(place));
-    } else {
-      enriched.push(place);
+  const indicesToEnrich = places
+    .map((place, index) => ({ place, index }))
+    .filter(({ place }) => place.siteWeb && !place.email);
+
+  for (let i = 0; i < indicesToEnrich.length; i += concurrency) {
+    const chunk = indicesToEnrich.slice(i, i + concurrency);
+    const results = await Promise.all(
+      chunk.map(({ place }) => enrichPlaceWithWebsiteEmail(place))
+    );
+
+    for (let j = 0; j < chunk.length; j++) {
+      enriched[chunk[j].index] = results[j];
+      processed += 1;
+      onProgress?.(processed, indicesToEnrich.length);
     }
   }
 

@@ -19,6 +19,15 @@ export const PRIORITY_SCORE_THRESHOLD = 70;
 /** 0 = sans limite (toute la région). Plafond par lot sinon. */
 export const UNEP_MAX_RESULTS_PER_RUN = 500;
 
+/** Fiches UNEP téléchargées en parallèle (10 = ~2× plus rapide, qualité identique). */
+export const UNEP_ENRICH_CONCURRENCY = 10;
+
+/** Pause entre chaque lot de téléchargements UNEP (ms). */
+export const UNEP_ENRICH_CHUNK_DELAY_MS = 30;
+
+/** Sites web analysés en parallèle (Google Maps). */
+export const GOOGLE_MAPS_ENRICH_CONCURRENCY = 5;
+
 export const CAMPAIGN_DEFAULTS = {
   dailyLimit: 25,
   minDelayMinutes: 5,
@@ -27,19 +36,22 @@ export const CAMPAIGN_DEFAULTS = {
 } as const;
 
 export const CAMPAIGN_GENERIC_TEMPLATE_DEFAULTS = {
-  subject: "MatoFlow pour {nomEntreprise}",
+  subject: "Question sur vos devis et planning — {nomEntreprise}",
   body: `Bonjour,
 
-Je me permets de vous contacter au sujet de {nomEntreprise}.
+Je travaille également dans le secteur du paysage et je me posais une question.
 
-Chez MatoFlow, nous aidons les entreprises du paysage à simplifier leurs devis, le planning des équipes et le suivi des contrats d'entretien.
+Aujourd'hui, comment gérez-vous vos devis, vos contrats d'entretien et le planning de vos équipes ?
 
-Si vous êtes ouvert à échanger 15 minutes, je peux vous montrer comment d'autres paysagistes organisent leurs interventions au quotidien.
+J'ai développé MatoFlow après avoir constaté que beaucoup d'entreprises jonglaient entre Excel, papier, WhatsApp et plusieurs outils différents.
 
-Découvrir MatoFlow : https://matoflow.fr
+Je ne sais pas si c'est votre cas, mais si le sujet vous parle, je serais ravi d'échanger 15 minutes avec vous pour avoir votre retour et vous montrer comment d'autres entreprises du paysage s'organisent.
 
-Bonne journée,
-Mathis — MatoFlow`,
+Bien cordialement,
+
+Mathis Magnard
+Fondateur de MatoFlow
+https://matoflow.fr`,
 } as const;
 
 export const CAMPAIGN_TEMPLATE_PLACEHOLDERS = [

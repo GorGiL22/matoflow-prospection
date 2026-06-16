@@ -50,7 +50,7 @@ export function UnepAreaScanBadge({
 }) {
   if (summary.isRunning) {
     return (
-      <Badge variant="info" className="gap-1">
+      <Badge variant="info" className="shrink-0 gap-1">
         <Loader2 className="h-3 w-3 animate-spin" />
         En cours
       </Badge>
@@ -59,7 +59,10 @@ export function UnepAreaScanBadge({
 
   if (summary.isFullyScanned) {
     return (
-      <Badge variant="success" className="gap-1">
+      <Badge
+        variant="success"
+        className="shrink-0 gap-1 border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-600 dark:text-white"
+      >
         <CheckCircle2 className="h-3 w-3" />
         Analysée
       </Badge>
@@ -68,7 +71,7 @@ export function UnepAreaScanBadge({
 
   if (summary.hasBeenScanned) {
     return (
-      <Badge variant="warning" className="gap-1">
+      <Badge variant="warning" className="shrink-0 gap-1">
         <Clock3 className="h-3 w-3" />
         Partielle
       </Badge>

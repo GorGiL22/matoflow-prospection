@@ -1,4 +1,5 @@
 import { UnepCityHub } from "@/components/scraping/unep-city-hub";
+import { UnepActiveScanNotice } from "@/components/scraping/unep-active-scan-notice";
 import { PageHeader } from "@/components/ui/page-header";
 import { getUnepAreaScanSummaries } from "@/modules/scraping/unep-jobs";
 
@@ -9,7 +10,8 @@ export default async function RechercheUnepHubPage() {
 
   try {
     summaries = await getUnepAreaScanSummaries();
-  } catch {
+  } catch (error) {
+    console.error("getUnepAreaScanSummaries failed:", error);
     summaries = [];
   }
 
@@ -21,7 +23,9 @@ export default async function RechercheUnepHubPage() {
         description="Import automatique des adhérents UNEP du paysage par grande ville — email, téléphone et site web, enregistrés directement en base."
       />
 
-      <UnepCityHub summaries={summaries} />
+      <UnepActiveScanNotice />
+
+      <UnepCityHub initialSummaries={summaries} />
     </div>
   );
 }

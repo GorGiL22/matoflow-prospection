@@ -11,6 +11,7 @@ import {
   MapPin,
   Building2,
   Mail,
+  Phone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/config/constants";
@@ -23,6 +24,7 @@ const navigation = [
   { name: "Google Maps", href: "/prospects/recherche", icon: MapPin },
   { name: "UNEP", href: "/prospects/recherche-unep", icon: Building2 },
   { name: "Prospects", href: "/prospects", icon: Users },
+  { name: "Listes d'appels", href: "/prospects/listes-numeros", icon: Phone },
   { name: "Campagnes email", href: "/campagnes", icon: Mail },
   { name: "Ajouter", href: "/prospects/nouveau", icon: UserPlus },
 ];
@@ -62,6 +64,8 @@ export function Sidebar() {
                     ? pathname.startsWith("/prospects/recherche-unep")
                     : item.href === "/prospects"
                       ? pathname === "/prospects"
+                      : item.href === "/prospects/listes-numeros"
+                        ? pathname.startsWith("/prospects/listes-numeros")
                       : item.href === "/campagnes"
                         ? pathname.startsWith("/campagnes")
                         : pathname.startsWith(item.href);

@@ -44,7 +44,7 @@ export function UnepSearchJobBanner() {
   }
 
   return (
-    <div className="fixed bottom-4 left-72 right-4 z-50 mx-auto max-w-3xl rounded-2xl border border-border bg-surface p-4 shadow-lg">
+    <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-3xl rounded-2xl border border-border bg-surface p-4 shadow-lg lg:left-72">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 text-sm font-semibold text-foreground">

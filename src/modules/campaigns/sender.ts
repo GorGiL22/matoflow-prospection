@@ -30,6 +30,19 @@ function textToHtml(text: string): string {
     .join("");
 }
 
+export async function sendCampaignTestEmail(input: {
+  to: string;
+  subject: string;
+  body: string;
+}): Promise<void> {
+  await sendEmail({
+    to: input.to,
+    subject: `[TEST MatoFlow] ${input.subject}`,
+    text: input.body,
+    html: textToHtml(input.body),
+  });
+}
+
 export async function processCampaignSendQueue(): Promise<{
   processed: boolean;
   campaignId?: string;
@@ -76,6 +89,10 @@ export async function processCampaignSendQueue(): Promise<{
       await campaignRepository.markEmailFailed(next.id, message);
       return { processed: true, campaignId: campaign.id, emailId: next.id, error: message };
     }
+  }
+
+  for (const campaign of active) {
+    await campaignRepository.maybeCompleteCampaign(campaign.id);
   }
 
   return { processed: false };

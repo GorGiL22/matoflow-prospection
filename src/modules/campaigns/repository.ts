@@ -599,13 +599,51 @@ export class CampaignRepository {
           ]
         : []),
     ]);
+
+    await this.maybeCompleteCampaign(email.campaignId);
   }
 
   async markEmailFailed(id: string, errorMessage: string): Promise<void> {
+    const email = await prisma.campaignEmail.findUnique({
+      where: { id },
+      select: { campaignId: true },
+    });
+
     await prisma.campaignEmail.update({
       where: { id },
       data: { statut: "FAILED", errorMessage },
     });
+
+    if (email) {
+      await this.maybeCompleteCampaign(email.campaignId);
+    }
+  }
+
+  async maybeCompleteCampaign(campaignId: string): Promise<boolean> {
+    const campaign = await prisma.emailCampaign.findUnique({
+      where: { id: campaignId },
+    });
+    if (!campaign || campaign.statut !== "ACTIVE") return false;
+
+    const [scheduled, processed] = await Promise.all([
+      prisma.campaignEmail.count({
+        where: { campaignId, statut: "SCHEDULED" },
+      }),
+      prisma.campaignEmail.count({
+        where: {
+          campaignId,
+          statut: { in: ["SENT", "FAILED", "OPENED", "REPLIED"] },
+        },
+      }),
+    ]);
+
+    if (scheduled > 0 || processed === 0) return false;
+
+    await prisma.emailCampaign.update({
+      where: { id: campaignId },
+      data: { statut: "COMPLETED" },
+    });
+    return true;
   }
 
   async markEmailOpened(id: string): Promise<void> {

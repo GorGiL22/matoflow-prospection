@@ -6,7 +6,7 @@ export function CampaignQueueProcessor() {
   useEffect(() => {
     const interval = setInterval(() => {
       void fetch("/api/campaigns/process", { method: "POST" });
-    }, 30_000);
+    }, 10_000);
 
     void fetch("/api/campaigns/process", { method: "POST" });
 

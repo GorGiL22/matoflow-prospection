@@ -28,6 +28,7 @@ export default async function CampagneDetailPage({ params }: PageProps) {
         campaign={detail.campaign}
         emails={detail.emails}
         stats={detail.stats}
+        report={detail.report}
       />
     </div>
   );

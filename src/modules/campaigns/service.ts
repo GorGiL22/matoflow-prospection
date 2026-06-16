@@ -1,11 +1,17 @@
 import { generatePersonalizedCampaignEmail } from "@/modules/campaigns/email-personalizer";
 import { buildGenericCampaignEmail } from "@/modules/campaigns/generic-template";
+import {
+  buildCampaignReportCsv,
+  buildCampaignReportFilename,
+  buildCampaignReportSummary,
+} from "@/modules/campaigns/report";
 import { campaignRepository } from "@/modules/campaigns/repository";
 import { buildSendSchedule } from "@/modules/campaigns/scheduler";
 import { processCampaignSendQueue } from "@/modules/campaigns/sender";
 import type {
   CampaignDashboardStats,
   CampaignEmail,
+  CampaignReport,
   EmailCampaign,
 } from "@/types/campaign";
 
@@ -27,7 +33,37 @@ export class CampaignService {
 
     if (!campaign) return null;
 
-    return { campaign, emails, stats };
+    const report = buildCampaignReportSummary(campaign, emails, stats);
+
+    return { campaign, emails, stats, report };
+  }
+
+  async exportCampaignReportCsv(campaignId: string): Promise<{
+    content: string;
+    filename: string;
+    rowCount: number;
+  }> {
+    const [campaign, emails, stats] = await Promise.all([
+      campaignRepository.getCampaign(campaignId),
+      campaignRepository.listCampaignEmails(campaignId),
+      campaignRepository.getDashboardStats(campaignId),
+    ]);
+
+    if (!campaign) throw new Error("Campagne introuvable");
+
+    return {
+      content: buildCampaignReportCsv(campaign, emails, stats),
+      filename: buildCampaignReportFilename(campaign),
+      rowCount: emails.length,
+    };
+  }
+
+  getCampaignReport(
+    campaign: EmailCampaign,
+    emails: CampaignEmail[],
+    stats: CampaignDashboardStats
+  ): CampaignReport {
+    return buildCampaignReportSummary(campaign, emails, stats);
   }
 
   listEligibleProspectsForCampaign() {
@@ -160,15 +196,27 @@ export class CampaignService {
       throw new Error("Aucun email généré à planifier");
     }
 
+    const isTestBatch = ready.length <= 5;
     const slots = buildSendSchedule({
       emailIds: ready.map((e) => e.id),
       dailyLimit: campaign.dailyLimit,
       minDelayMinutes: campaign.minDelayMinutes,
       maxDelayMinutes: campaign.maxDelayMinutes,
+      ignoreBusinessHours: isTestBatch,
     });
 
     await campaignRepository.scheduleDraftEmails(campaignId, slots);
-    return campaignRepository.updateCampaignStatus(campaignId, "active");
+    const updated = await campaignRepository.updateCampaignStatus(campaignId, "active");
+
+    if (isTestBatch) {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const result = await processCampaignSendQueue();
+        if (result.processed) break;
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+    }
+
+    return updated;
   }
 
   pauseCampaign(campaignId: string): Promise<EmailCampaign> {
@@ -205,6 +253,28 @@ export class CampaignService {
 
   unblockProspectForCampaignRetry(prospectId: string) {
     return campaignRepository.unblockProspectForCampaignRetry(prospectId);
+  }
+
+  async sendTestEmail(campaignId: string, toEmail: string) {
+    const trimmed = toEmail.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes("@")) {
+      throw new Error("Adresse email de test invalide.");
+    }
+
+    const emails = await campaignRepository.listCampaignEmails(campaignId);
+    const sample = emails.find((email) => email.subject && email.body);
+    if (!sample?.subject || !sample.body) {
+      throw new Error("Générez d'abord au moins un email avant d'envoyer un test.");
+    }
+
+    const { sendCampaignTestEmail } = await import("@/modules/campaigns/sender");
+    await sendCampaignTestEmail({
+      to: trimmed,
+      subject: sample.subject,
+      body: sample.body,
+    });
+
+    return { to: trimmed, subject: sample.subject };
   }
 }
 

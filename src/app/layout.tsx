@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { ConditionalAppShell } from "@/components/layout/conditional-app-shell";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { ThemeInitScript } from "@/components/theme/theme-init-script";
 import { APP_NAME } from "@/config/constants";
 import "./globals.css";
 
@@ -35,10 +35,10 @@ export default function RootLayout({
       className={`${jakartaSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <ThemeInitScript />
+      </head>
       <body className="min-h-full font-sans">
-        <Script id="theme-init" strategy="beforeInteractive">
-          {`(function(){try{var t=localStorage.getItem("theme");var d=t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d)document.documentElement.classList.add("dark")}catch(e){}})();`}
-        </Script>
         <ThemeProvider>
           <ConditionalAppShell>{children}</ConditionalAppShell>
         </ThemeProvider>

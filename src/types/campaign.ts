@@ -87,6 +87,20 @@ export interface CampaignDashboardStats {
   failed: number;
 }
 
+export interface CampaignReport {
+  campaignId: string;
+  campaignName: string;
+  status: EmailCampaignStatus;
+  stats: CampaignDashboardStats;
+  opened: number;
+  replied: number;
+  pendingDraft: number;
+  firstSentAt: string | null;
+  lastSentAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
 export interface PersonalizedCampaignEmail {
   subject: string;
   body: string;

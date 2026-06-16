@@ -105,7 +105,41 @@ export async function processCampaignQueueAction() {
   try {
     const result = await campaignService.processQueue();
     revalidatePath("/campagnes");
+    if (result.campaignId) {
+      revalidatePath(`/campagnes/${result.campaignId}`);
+    }
     return { success: true as const, ...result };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erreur serveur";
+    return { success: false as const, error: message };
+  }
+}
+
+export async function exportCampaignReportCsvAction(campaignId: string) {
+  try {
+    const result = await campaignService.exportCampaignReportCsv(campaignId);
+    return { success: true as const, result };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erreur serveur";
+    return { success: false as const, error: message };
+  }
+}
+
+const testEmailSchema = z.object({
+  campaignId: z.string().min(1),
+  toEmail: z.string().email("Email invalide"),
+});
+
+export async function sendCampaignTestEmailAction(
+  input: z.infer<typeof testEmailSchema>
+) {
+  try {
+    const parsed = testEmailSchema.parse(input);
+    const result = await campaignService.sendTestEmail(
+      parsed.campaignId,
+      parsed.toEmail
+    );
+    return { success: true as const, result };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur serveur";
     return { success: false as const, error: message };

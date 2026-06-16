@@ -9,6 +9,8 @@ import {
   resumeCampaignAction,
   markEmailRepliedAction,
   resetCampaignForRetestAction,
+  sendCampaignTestEmailAction,
+  processCampaignQueueAction,
 } from "@/actions/campaigns";
 import { Card, CardHeader } from "@/components/ui/card";
 import {
@@ -16,8 +18,10 @@ import {
   CAMPAIGN_STATUS_LABELS,
   type CampaignDashboardStats,
   type CampaignEmail,
+  type CampaignReport,
   type EmailCampaign,
 } from "@/types/campaign";
+import { isCampaignQueueFinished } from "@/modules/campaigns/report";
 import {
   Loader2,
   Pause,
@@ -25,8 +29,11 @@ import {
   Sparkles,
   CheckCircle2,
   RotateCcw,
+  Mail,
+  Zap,
 } from "lucide-react";
 import { CampaignStatsCards } from "./campaign-stats-cards";
+import { CampaignReportPanel } from "./campaign-report-panel";
 import { CampaignEmailExamples } from "./campaign-email-examples";
 import { CampaignGenericTemplateForm } from "./campaign-generic-template-form";
 import { CAMPAIGN_CONTENT_MODE_LABELS } from "@/types/campaign";
@@ -36,6 +43,7 @@ interface CampaignDetailPanelProps {
   campaign: EmailCampaign;
   emails: CampaignEmail[];
   stats: CampaignDashboardStats;
+  report: CampaignReport;
 }
 
 const statusBadge: Record<string, string> = {
@@ -54,14 +62,18 @@ export function CampaignDetailPanel({
   campaign,
   emails,
   stats,
+  report,
 }: CampaignDetailPanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [testEmail, setTestEmail] = useState("gaspard.rivron2@orange.fr");
 
   const draftsWithoutContent = emails.filter((e) => !e.subject).length;
   const readyToSchedule = emails.filter((e) => e.subject && e.statut === "draft").length;
+  const failedEmails = emails.filter((e) => e.statut === "failed");
+  const showReport = isCampaignQueueFinished(campaign, stats, emails);
   const isGeneric = campaign.contentMode === "generic";
   const canEdit = campaign.statut === "draft";
 
@@ -82,6 +94,42 @@ export function CampaignDetailPanel({
         setMessage("Action effectuée.");
       }
       router.refresh();
+    });
+  }
+
+  function handleTestSend() {
+    setMessage(null);
+    setError(null);
+    startTransition(async () => {
+      const result = await sendCampaignTestEmailAction({
+        campaignId: campaign.id,
+        toEmail: testEmail,
+      });
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      setMessage(
+        `Email de test envoyé à ${testEmail}. Vérifiez votre boîte mail et les spams.`
+      );
+    });
+  }
+
+  function handleForceSend() {
+    runAction(async () => {
+      const result = await processCampaignQueueAction();
+      if (!result.success) return result;
+      if (result.processed && result.error) {
+        return { success: false, error: result.error };
+      }
+      if (result.processed) {
+        return { success: true, generated: 1, remaining: 0 };
+      }
+      return {
+        success: true,
+        generated: 0,
+        remaining: 0,
+      };
     });
   }
 
@@ -202,7 +250,67 @@ export function CampaignDetailPanel({
         </p>
       )}
 
+      {failedEmails.length > 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+          <p className="font-medium">
+            {failedEmails.length} envoi{failedEmails.length > 1 ? "s" : ""} en
+            échec
+          </p>
+          <ul className="mt-2 space-y-1 text-xs">
+            {failedEmails.map((email) => (
+              <li key={email.id}>
+                {email.prospect?.nomEntreprise} ({email.prospect?.email}) :{" "}
+                {email.errorMessage ?? "Erreur Resend"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <Card>
+        <CardHeader
+          title="Test d'envoi"
+          description="L'email de campagne part vers l'adresse du prospect, pas la vôtre. Utilisez ce test pour recevoir un exemple sur votre boîte mail."
+        />
+        <div className="flex flex-col gap-3 px-4 pb-4 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Votre email de test
+            </label>
+            <input
+              type="email"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              placeholder="vous@example.com"
+            />
+          </div>
+          <button
+            type="button"
+            disabled={isPending || draftsWithoutContent === emails.length}
+            onClick={handleTestSend}
+            className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+          >
+            <Mail className="h-4 w-4" />
+            Envoyer un test
+          </button>
+          {campaign.statut === "active" && (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={handleForceSend}
+              className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700"
+            >
+              <Zap className="h-4 w-4" />
+              Forcer l&apos;envoi
+            </button>
+          )}
+        </div>
+      </Card>
+
       <CampaignStatsCards stats={stats} />
+
+      {showReport && <CampaignReportPanel report={report} />}
 
       {isGeneric && canEdit && (
         <CampaignGenericTemplateForm campaign={campaign} editable={canEdit} />

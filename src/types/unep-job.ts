@@ -16,6 +16,7 @@ export interface UnepSearchJobConfig {
   startPage: number;
   includeMetropole: boolean;
   excludeExisting: boolean;
+  autoChain?: boolean;
 }
 
 export interface UnepSearchJobProgress {
@@ -61,6 +62,7 @@ export interface CreateUnepSearchJobInput {
   startPage: number;
   includeMetropole: boolean;
   excludeExisting: boolean;
+  autoChain?: boolean;
 }
 
 export const ACTIVE_UNEP_JOB_STORAGE_KEY = "matoflow-unep-active-job-id";

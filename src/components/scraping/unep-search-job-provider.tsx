@@ -64,6 +64,15 @@ function syncScanCursor(job: UnepSearchJobSnapshot) {
   });
 }
 
+async function fetchActiveJob(): Promise<UnepSearchJobSnapshot | null> {
+  const response = await fetch("/api/unep/search/jobs/active");
+  if (!response.ok) return null;
+  const data = (await response.json()) as {
+    job: UnepSearchJobSnapshot | null;
+  };
+  return data.job?.status === "running" ? data.job : null;
+}
+
 export function UnepSearchJobProvider({
   children,
 }: {
@@ -71,6 +80,7 @@ export function UnepSearchJobProvider({
 }) {
   const [job, setJob] = useState<UnepSearchJobSnapshot | null>(null);
   const [trackedJobId, setTrackedJobId] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [autoChain, setAutoChainState] = useState(true);
   const [isChaining, setIsChaining] = useState(false);
   const prevStatusRef = useRef<string | null>(null);
@@ -79,6 +89,25 @@ export function UnepSearchJobProvider({
   const startJobRef = useRef<
     ((input: CreateUnepSearchJobInput) => Promise<void>) | null
   >(null);
+
+  const adoptJob = useCallback((next: UnepSearchJobSnapshot) => {
+    localStorage.setItem(ACTIVE_UNEP_JOB_STORAGE_KEY, next.id);
+    setTrackedJobId(next.id);
+    setJob(next);
+    if (next.status === "running") {
+      prevStatusRef.current = "running";
+    }
+    syncScanCursor(next);
+  }, []);
+
+  const discoverActiveJob = useCallback(async () => {
+    const active = await fetchActiveJob();
+    if (active) {
+      adoptJob(active);
+      return active;
+    }
+    return null;
+  }, [adoptJob]);
 
   useEffect(() => {
     setAutoChainState(readAutoChainPreference());
@@ -90,36 +119,62 @@ export function UnepSearchJobProvider({
   }, []);
 
   const refreshJob = useCallback(async () => {
-    if (!trackedJobId) return;
+    if (trackedJobId) {
+      const next = await fetchJob(trackedJobId);
+      if (next) {
+        setJob(next);
+        syncScanCursor(next);
 
-    const next = await fetchJob(trackedJobId);
-    if (!next) {
-      localStorage.removeItem(ACTIVE_UNEP_JOB_STORAGE_KEY);
-      setTrackedJobId(null);
-      setJob(null);
-      return;
+        if (next.status === "running") {
+          return;
+        }
+
+        localStorage.removeItem(ACTIVE_UNEP_JOB_STORAGE_KEY);
+        setTrackedJobId(null);
+      } else {
+        localStorage.removeItem(ACTIVE_UNEP_JOB_STORAGE_KEY);
+        setTrackedJobId(null);
+        setJob(null);
+      }
     }
 
-    setJob(next);
-    syncScanCursor(next);
-
-    if (next.status !== "running") {
-      localStorage.removeItem(ACTIVE_UNEP_JOB_STORAGE_KEY);
-    }
-  }, [trackedJobId]);
+    await discoverActiveJob();
+  }, [trackedJobId, discoverActiveJob]);
 
   useEffect(() => {
-    const storedId = localStorage.getItem(ACTIVE_UNEP_JOB_STORAGE_KEY);
-    if (!storedId) return;
+    async function hydrate() {
+      const storedId = localStorage.getItem(ACTIVE_UNEP_JOB_STORAGE_KEY);
 
-    setTrackedJobId(storedId);
-    void fetchJob(storedId).then((loaded) => {
-      if (loaded) {
-        setJob(loaded);
-        prevStatusRef.current = loaded.status;
+      if (storedId) {
+        const storedJob = await fetchJob(storedId);
+        if (storedJob?.status === "running") {
+          adoptJob(storedJob);
+          setIsHydrated(true);
+          return;
+        }
+
+        if (storedJob) {
+          setJob(storedJob);
+          prevStatusRef.current = storedJob.status;
+        }
       }
-    });
-  }, []);
+
+      await discoverActiveJob();
+      setIsHydrated(true);
+    }
+
+    void hydrate();
+  }, [adoptJob, discoverActiveJob]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    if (!trackedJobId && job?.status !== "running") {
+      const interval = setInterval(() => {
+        void discoverActiveJob();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [isHydrated, trackedJobId, job?.status, discoverActiveJob]);
 
   useEffect(() => {
     if (!trackedJobId || job?.status !== "running") return;
@@ -149,11 +204,8 @@ export function UnepSearchJobProvider({
       throw new Error(data.error ?? "Impossible de démarrer la recherche UNEP");
     }
 
-    localStorage.setItem(ACTIVE_UNEP_JOB_STORAGE_KEY, data.job.id);
-    setTrackedJobId(data.job.id);
-    setJob(data.job);
-    prevStatusRef.current = data.job.status;
-  }, []);
+    adoptJob(data.job);
+  }, [adoptJob]);
 
   startJobRef.current = startJob;
 
@@ -181,7 +233,7 @@ export function UnepSearchJobProvider({
         return;
       }
 
-      await startJobRef.current(nextData.input);
+      await startJobRef.current({ ...nextData.input, autoChain: true });
     } catch {
       // L'enchaînement automatique ne doit pas bloquer l'interface.
     } finally {

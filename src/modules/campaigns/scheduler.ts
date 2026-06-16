@@ -31,24 +31,41 @@ export function buildSendSchedule(input: {
   minDelayMinutes: number;
   maxDelayMinutes: number;
   startAt?: Date;
+  /** Campagnes courtes / tests : envoi immédiat, sans contrainte 9h-18h. */
+  ignoreBusinessHours?: boolean;
 }): Array<{ emailId: string; scheduledAt: Date }> {
   const slots: Array<{ emailId: string; scheduledAt: Date }> = [];
-  let cursor = clampToBusinessHours(input.startAt ?? new Date());
+  let cursor = input.ignoreBusinessHours
+    ? new Date(input.startAt ?? Date.now())
+    : clampToBusinessHours(input.startAt ?? new Date());
   let sentToday = 0;
 
-  for (const emailId of input.emailIds) {
+  for (let index = 0; index < input.emailIds.length; index += 1) {
+    const emailId = input.emailIds[index];
+
     if (sentToday >= input.dailyLimit) {
-      cursor = nextBusinessMorning(cursor);
+      cursor = input.ignoreBusinessHours
+        ? new Date(cursor.getTime() + 24 * 60 * 60 * 1000)
+        : nextBusinessMorning(cursor);
       sentToday = 0;
     }
 
-    cursor = new Date(cursor.getTime() + randomDelayMs(1, 3));
+    if (index === 0) {
+      cursor = input.ignoreBusinessHours
+        ? new Date()
+        : clampToBusinessHours(input.startAt ?? new Date());
+    } else {
+      const delayMinutes = input.ignoreBusinessHours ? 1 : input.minDelayMinutes;
+      const maxDelay = input.ignoreBusinessHours
+        ? 2
+        : input.maxDelayMinutes;
+      cursor = new Date(
+        cursor.getTime() + randomDelayMs(delayMinutes, maxDelay)
+      );
+    }
+
     slots.push({ emailId, scheduledAt: new Date(cursor) });
     sentToday += 1;
-    cursor = new Date(
-      cursor.getTime() +
-        randomDelayMs(input.minDelayMinutes, input.maxDelayMinutes)
-    );
   }
 
   return slots;

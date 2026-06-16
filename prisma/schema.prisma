@@ -43,10 +43,21 @@ model Prospect {
   linkedinGenere    String?
   scriptAppelGenere String?
 
+  adresse            String?
+  siren              String?
+  effectif           String?
+  chiffreAffaires    String?
+  statutCommercial   String?   @default("À appeler")
+  commentaireCommercial String?
+  dateDernierAppel   DateTime?
+  dateRappel         DateTime?
+  commercialAssigne  String?
+
   notes          Note[]
   activites      Activite[]
   qualifications QualificationIA[]
   campaignEmails   CampaignEmail[]
+  phoneListItems   PhoneListItem[]
 
   @@index([statut])
   @@index([scoreIA])
@@ -173,4 +184,40 @@ model CampaignEmail {
   @@index([campaignId, statut])
   @@index([statut, scheduledAt])
   @@index([prospectId])
+}
+
+model GoogleSheetsConfig {
+  id             String    @id @default("default")
+  spreadsheetId  String
+  spreadsheetUrl String
+  sheetName      String    @default("Prospects")
+  lastExportedAt DateTime?
+  lastSyncedAt   DateTime?
+  updatedAt      DateTime  @updatedAt
+}
+
+model PhoneList {
+  id           String          @id @default(cuid())
+  nom          String
+  dateCreation DateTime        @default(now())
+  dateModification DateTime    @updatedAt
+  items        PhoneListItem[]
+
+  @@index([dateCreation])
+}
+
+model PhoneListItem {
+  id            String    @id @default(cuid())
+  listId        String
+  prospectId    String?
+  nomEntreprise String
+  telephone     String
+  ville         String?
+  dateAjout     DateTime  @default(now())
+
+  list     PhoneList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  prospect Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+
+  @@unique([listId, prospectId])
+  @@index([listId, dateAjout])
 }

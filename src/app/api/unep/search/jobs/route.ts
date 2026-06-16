@@ -13,6 +13,7 @@ const bodySchema = z.object({
   startPage: z.number().int().min(1).default(1),
   includeMetropole: z.boolean().default(false),
   excludeExisting: z.boolean().default(true),
+  autoChain: z.boolean().default(false),
 });
 
 export async function POST(request: NextRequest) {

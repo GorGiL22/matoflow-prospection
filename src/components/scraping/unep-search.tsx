@@ -32,7 +32,7 @@ export function UnepSearchPanel({
   initialScanSummary?: UnepAreaScanSummary | null;
 }) {
   const areaDefinition = getUnepAreaDefinition(area);
-  const { areaJob, isRunningForArea, job: globalJob, startJob, stopJob, autoChain, setAutoChain } =
+  const { areaJob, job: globalJob, startJob, stopJob, autoChain, setAutoChain } =
     useUnepSearchJobForArea(area);
 
   const [includeMetropole, setIncludeMetropole] = useState(
@@ -50,6 +50,12 @@ export function UnepSearchPanel({
 
   const otherJobRunning =
     globalJob?.status === "running" && globalJob.area !== area;
+
+  const isRunningForAreaClient =
+    globalJob?.status === "running" && globalJob.area === area;
+  const isRunningForArea =
+    isRunningForAreaClient ||
+    Boolean(initialScanSummary?.isRunning && !globalJob);
 
   const results = areaJob?.results ?? [];
   const logs = areaJob?.logs ?? [];
@@ -127,6 +133,7 @@ export function UnepSearchPanel({
         startPage: effectiveStartPage,
         includeMetropole,
         excludeExisting,
+        autoChain: autoChain && unlimitedResults,
       });
     } catch (err) {
       setError(

@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, Filter } from "lucide-react";
-import { selectClassName } from "@/components/ui/input";
+import { ArrowDown, ArrowUp, Filter, Search } from "lucide-react";
+import { inputClassName, selectClassName } from "@/components/ui/input";
 import { buttonVariants } from "@/components/ui/button";
-import { getScoreBgColor, getScoreColor, formatEmailDisplay, formatPhoneDisplay, hasValidProspectEmail, hasValidProspectPhone, hasValidProspectWebsite } from "@/lib/utils";
+import { getScoreBgColor, getScoreColor, formatEmailDisplay, formatPhoneDisplay, hasValidProspectEmail, hasValidProspectPhone, hasValidProspectWebsite, cn } from "@/lib/utils";
 import { ProspectDeleteButton } from "@/components/prospects/prospect-delete-button";
 import { ProspectContactFilter, DEFAULT_CONTACT_FILTERS, type ContactFilters, type ContactFieldFilter } from "@/components/prospects/prospect-contact-filter";
 import { ProspectStatusFilter } from "@/components/prospects/prospect-status-filter";
@@ -50,13 +50,41 @@ function sortProspects(
   });
 }
 
+function matchesSearchQuery(prospect: Prospect, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+
+  const haystack = [
+    prospect.nomEntreprise,
+    prospect.ville,
+    prospect.email,
+    prospect.emailNormalise,
+    prospect.telephone,
+    prospect.siteWeb,
+    prospect.siret,
+    prospect.description,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(q);
+}
+
 function filterProspects(
   prospects: Prospect[],
+  searchQuery: string,
   analysisFilter: AnalysisFilter,
   contactFilters: ContactFilters,
   statusFilter: ProspectStatus[]
 ): Prospect[] {
   let filtered = prospects;
+
+  if (searchQuery.trim()) {
+    filtered = filtered.filter((prospect) =>
+      matchesSearchQuery(prospect, searchQuery)
+    );
+  }
 
   if (analysisFilter === "analyzed") {
     filtered = filtered.filter((prospect) => prospect.scoreIA !== null);
@@ -100,6 +128,7 @@ function filterProspects(
 }
 
 export function ProspectTable({ prospects }: ProspectTableProps) {
+  const [searchQuery, setSearchQuery] = useState("");
   const [scoreSort, setScoreSort] = useState<ScoreSort>("desc");
   const [analysisFilter, setAnalysisFilter] = useState<AnalysisFilter>("all");
   const [contactFilters, setContactFilters] = useState<ContactFilters>(
@@ -110,12 +139,13 @@ export function ProspectTable({ prospects }: ProspectTableProps) {
   const displayedProspects = useMemo(() => {
     const filtered = filterProspects(
       prospects,
+      searchQuery,
       analysisFilter,
       contactFilters,
       statusFilter
     );
     return sortProspects(filtered, scoreSort);
-  }, [prospects, analysisFilter, contactFilters, statusFilter, scoreSort]);
+  }, [prospects, searchQuery, analysisFilter, contactFilters, statusFilter, scoreSort]);
 
   if (prospects.length === 0) {
     return (
@@ -137,6 +167,18 @@ export function ProspectTable({ prospects }: ProspectTableProps) {
 
   return (
     <div className="space-y-4">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Rechercher par nom, ville, email, téléphone…"
+          className={cn(inputClassName, "pl-9")}
+          aria-label="Rechercher un prospect"
+        />
+      </div>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 text-sm text-muted">
           <Filter className="h-4 w-4" />
@@ -188,7 +230,7 @@ export function ProspectTable({ prospects }: ProspectTableProps) {
       {displayedProspects.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-surface p-8 text-center">
           <p className="text-sm text-muted">
-            Aucun prospect ne correspond à ce filtre.
+            Aucun prospect ne correspond à votre recherche ou à ces filtres.
           </p>
         </div>
       ) : (

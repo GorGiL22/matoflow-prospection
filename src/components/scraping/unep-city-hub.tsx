@@ -1,5 +1,9 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Building2 } from "lucide-react";
+import { useUnepSearchJob } from "@/components/scraping/unep-search-job-provider";
 import { Card } from "@/components/ui/card";
 import {
   UnepAreaScanBadge,
@@ -12,10 +16,46 @@ import {
 import type { UnepAreaScanSummary } from "@/types/unep-job";
 
 interface UnepCityHubProps {
-  summaries: UnepAreaScanSummary[];
+  initialSummaries: UnepAreaScanSummary[];
 }
 
-export function UnepCityHub({ summaries }: UnepCityHubProps) {
+export function UnepCityHub({ initialSummaries }: UnepCityHubProps) {
+  const { job, isRunning } = useUnepSearchJob();
+  const [summaries, setSummaries] = useState(initialSummaries);
+
+  const refreshSummaries = useCallback(async () => {
+    try {
+      const response = await fetch("/api/unep/search/summaries");
+      if (!response.ok) return;
+      const data = (await response.json()) as {
+        summaries?: UnepAreaScanSummary[];
+      };
+      if (data.summaries) {
+        setSummaries(data.summaries);
+      }
+    } catch {
+      // Ignore refresh errors — keep the last known state.
+    }
+  }, []);
+
+  useEffect(() => {
+    setSummaries(initialSummaries);
+  }, [initialSummaries]);
+
+  useEffect(() => {
+    if (!isRunning && job?.status === "completed") {
+      void refreshSummaries();
+    }
+  }, [isRunning, job?.status, job?.area, refreshSummaries]);
+
+  useEffect(() => {
+    if (!isRunning) return;
+    const interval = setInterval(() => {
+      void refreshSummaries();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isRunning, refreshSummaries]);
+
   const summaryByArea = new Map(summaries.map((summary) => [summary.area, summary]));
   const scannedCount = summaries.filter(
     (summary) => summary.isFullyScanned || summary.hasBeenScanned
@@ -44,7 +84,7 @@ export function UnepCityHub({ summaries }: UnepCityHubProps) {
               <Card
                 className={`h-full p-4 transition-all duration-150 hover:shadow-md ${
                   summary?.isFullyScanned
-                    ? "border-brand/30 bg-brand-muted/20 hover:border-brand/50"
+                    ? "border-emerald-300/80 bg-emerald-50/60 hover:border-emerald-400 dark:border-emerald-800 dark:bg-emerald-950/30"
                     : summary?.hasBeenScanned
                       ? "border-amber-200/80 hover:border-amber-300 dark:border-amber-900/60"
                       : "hover:border-brand/40"
@@ -54,13 +94,15 @@ export function UnepCityHub({ summaries }: UnepCityHubProps) {
                   <div
                     className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
                       summary?.isFullyScanned
-                        ? "bg-brand-muted"
+                        ? "bg-emerald-100 dark:bg-emerald-900/50"
                         : "bg-surface-muted"
                     }`}
                   >
                     <Building2
                       className={`h-5 w-5 ${
-                        summary?.isFullyScanned ? "text-brand" : "text-muted"
+                        summary?.isFullyScanned
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-muted"
                       }`}
                     />
                   </div>
@@ -69,7 +111,9 @@ export function UnepCityHub({ summaries }: UnepCityHubProps) {
                       <p className="font-medium text-foreground">
                         {city.areaName}
                       </p>
-                      {summary ? <UnepAreaScanBadge summary={summary} /> : null}
+                      {summary ? (
+                        <UnepAreaScanBadge summary={summary} />
+                      ) : null}
                     </div>
                     <p className="text-xs text-muted">
                       {city.regionName} · ~{city.approximateCount} fiches région

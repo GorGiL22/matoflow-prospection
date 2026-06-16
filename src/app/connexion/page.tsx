@@ -33,8 +33,8 @@ function ConnexionContent() {
 
         {error === "AccessDenied" && (
           <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-            Accès refusé. Seuls les comptes Google autorisés peuvent se connecter.
-            Contactez l&apos;administrateur pour ajouter votre email.
+            Accès refusé. Seuls les comptes administrateurs autorisés peuvent se
+            connecter.
           </p>
         )}
 
