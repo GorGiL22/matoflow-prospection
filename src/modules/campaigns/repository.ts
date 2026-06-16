@@ -545,6 +545,56 @@ export class CampaignRepository {
     });
   }
 
+  async releaseStuckSendingEmails(maxAgeMs = 10 * 60 * 1000): Promise<void> {
+    const cutoff = new Date(Date.now() - maxAgeMs);
+    await prisma.campaignEmail.updateMany({
+      where: {
+        statut: "SENDING",
+        dateModification: { lt: cutoff },
+      },
+      data: {
+        statut: "FAILED",
+        errorMessage: "Envoi interrompu (délai dépassé)",
+      },
+    });
+  }
+
+  /**
+   * Réserve atomiquement le prochain email planifié pour éviter les envois en double
+   * quand plusieurs workers traitent la file en parallèle.
+   */
+  async claimNextScheduledEmail(campaignId: string) {
+    await this.releaseStuckSendingEmails();
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const candidate = await prisma.campaignEmail.findFirst({
+        where: {
+          campaignId,
+          statut: "SCHEDULED",
+          scheduledAt: { lte: new Date() },
+        },
+        orderBy: { scheduledAt: "asc" },
+        include: {
+          prospect: true,
+          campaign: true,
+        },
+      });
+
+      if (!candidate) return null;
+
+      const claimed = await prisma.campaignEmail.updateMany({
+        where: { id: candidate.id, statut: "SCHEDULED" },
+        data: { statut: "SENDING" },
+      });
+
+      if (claimed.count === 1) {
+        return { ...candidate, statut: "SENDING" as const };
+      }
+    }
+
+    return null;
+  }
+
   async markEmailSent(id: string): Promise<void> {
     const email = await prisma.campaignEmail.findUnique({
       where: { id },
@@ -558,8 +608,8 @@ export class CampaignRepository {
     );
 
     await prisma.$transaction([
-      prisma.campaignEmail.update({
-        where: { id },
+      prisma.campaignEmail.updateMany({
+        where: { id, statut: { in: ["SENDING", "SCHEDULED"] } },
         data: { statut: "SENT", sentAt: new Date() },
       }),
       ...(shouldMarkContacted
@@ -609,8 +659,8 @@ export class CampaignRepository {
       select: { campaignId: true },
     });
 
-    await prisma.campaignEmail.update({
-      where: { id },
+    await prisma.campaignEmail.updateMany({
+      where: { id, statut: { in: ["SENDING", "SCHEDULED"] } },
       data: { statut: "FAILED", errorMessage },
     });
 
@@ -627,7 +677,7 @@ export class CampaignRepository {
 
     const [scheduled, processed] = await Promise.all([
       prisma.campaignEmail.count({
-        where: { campaignId, statut: "SCHEDULED" },
+        where: { campaignId, statut: { in: ["SCHEDULED", "SENDING"] } },
       }),
       prisma.campaignEmail.count({
         where: {
@@ -711,7 +761,9 @@ export class CampaignRepository {
       interested: interested.length,
       toFollowUp: toFollowUp.length,
       totalEmails: emails.length,
-      scheduled: emails.filter((e) => e.statut === "SCHEDULED").length,
+      scheduled: emails.filter(
+        (e) => e.statut === "SCHEDULED" || e.statut === "SENDING"
+      ).length,
       failed: emails.filter((e) => e.statut === "FAILED").length,
     };
   }

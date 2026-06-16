@@ -133,6 +133,7 @@ enum CampaignContentMode {
 enum CampaignEmailStatus {
   DRAFT
   SCHEDULED
+  SENDING
   SENT
   FAILED
   OPENED

@@ -1,14 +1,23 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function CampaignQueueProcessor() {
-  useEffect(() => {
-    const interval = setInterval(() => {
-      void fetch("/api/campaigns/process", { method: "POST" });
-    }, 10_000);
+  const inFlightRef = useRef(false);
 
-    void fetch("/api/campaigns/process", { method: "POST" });
+  useEffect(() => {
+    async function tick() {
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
+      try {
+        await fetch("/api/campaigns/process", { method: "POST" });
+      } finally {
+        inFlightRef.current = false;
+      }
+    }
+
+    void tick();
+    const interval = setInterval(() => void tick(), 10_000);
 
     return () => clearInterval(interval);
   }, []);

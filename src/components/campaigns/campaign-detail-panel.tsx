@@ -52,6 +52,7 @@ const statusBadge: Record<string, string> = {
   paused: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400",
   completed: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400",
   scheduled: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-400",
+  sending: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-400",
   sent: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-400",
   failed: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400",
   opened: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-400",

@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "CampaignEmailStatus" ADD VALUE IF NOT EXISTS 'SENDING' BEFORE 'SENT';

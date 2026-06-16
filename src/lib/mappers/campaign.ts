@@ -52,6 +52,7 @@ const CAMPAIGN_TO_PRISMA: Record<EmailCampaignStatus, PrismaEmailCampaignStatus>
 const EMAIL_TO_DOMAIN: Record<PrismaCampaignEmailStatus, CampaignEmailStatus> = {
   DRAFT: "draft",
   SCHEDULED: "scheduled",
+  SENDING: "sending",
   SENT: "sent",
   FAILED: "failed",
   OPENED: "opened",
@@ -61,6 +62,7 @@ const EMAIL_TO_DOMAIN: Record<PrismaCampaignEmailStatus, CampaignEmailStatus> = 
 const EMAIL_TO_PRISMA: Record<CampaignEmailStatus, PrismaCampaignEmailStatus> = {
   draft: "DRAFT",
   scheduled: "SCHEDULED",
+  sending: "SENDING",
   sent: "SENT",
   failed: "FAILED",
   opened: "OPENED",

@@ -13,6 +13,7 @@ export type CampaignContentMode = (typeof CAMPAIGN_CONTENT_MODES)[number];
 export const CAMPAIGN_EMAIL_STATUSES = [
   "draft",
   "scheduled",
+  "sending",
   "sent",
   "failed",
   "opened",
@@ -123,6 +124,7 @@ export const CAMPAIGN_CONTENT_MODE_LABELS: Record<CampaignContentMode, string> =
 export const CAMPAIGN_EMAIL_STATUS_LABELS: Record<CampaignEmailStatus, string> = {
   draft: "Brouillon",
   scheduled: "Planifié",
+  sending: "En cours d'envoi",
   sent: "Envoyé",
   failed: "Échec",
   opened: "Ouvert",
