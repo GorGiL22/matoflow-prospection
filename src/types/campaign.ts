@@ -16,6 +16,7 @@ export const CAMPAIGN_EMAIL_STATUSES = [
   "sending",
   "sent",
   "failed",
+  "bounced",
   "opened",
   "replied",
 ] as const;
@@ -53,6 +54,8 @@ export interface CampaignEmail {
   openedAt: string | null;
   repliedAt: string | null;
   errorMessage: string | null;
+  resendEmailId: string | null;
+  bouncedAt: string | null;
   dateCreation: string;
   dateModification: string;
   prospect?: {
@@ -127,6 +130,7 @@ export const CAMPAIGN_EMAIL_STATUS_LABELS: Record<CampaignEmailStatus, string> =
   sending: "En cours d'envoi",
   sent: "Envoyé",
   failed: "Échec",
+  bounced: "Rebondi",
   opened: "Ouvert",
   replied: "Répondu",
 };

@@ -11,6 +11,7 @@ import {
   resetCampaignForRetestAction,
   sendCampaignTestEmailAction,
   processCampaignQueueAction,
+  syncResendBouncesAction,
 } from "@/actions/campaigns";
 import { Card, CardHeader } from "@/components/ui/card";
 import {
@@ -31,6 +32,7 @@ import {
   RotateCcw,
   Mail,
   Zap,
+  Phone,
 } from "lucide-react";
 import { CampaignStatsCards } from "./campaign-stats-cards";
 import { CampaignReportPanel } from "./campaign-report-panel";
@@ -55,6 +57,7 @@ const statusBadge: Record<string, string> = {
   sending: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-400",
   sent: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-400",
   failed: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400",
+  bounced: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-400",
   opened: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-400",
   replied: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400",
 };
@@ -74,6 +77,7 @@ export function CampaignDetailPanel({
   const draftsWithoutContent = emails.filter((e) => !e.subject).length;
   const readyToSchedule = emails.filter((e) => e.subject && e.statut === "draft").length;
   const failedEmails = emails.filter((e) => e.statut === "failed");
+  const bouncedEmails = emails.filter((e) => e.statut === "bounced");
   const showReport = isCampaignQueueFinished(campaign, stats, emails);
   const isGeneric = campaign.contentMode === "generic";
   const canEdit = campaign.statut === "draft";
@@ -251,6 +255,59 @@ export function CampaignDetailPanel({
         </p>
       )}
 
+      {bouncedEmails.length > 0 && (
+        <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-200">
+          <p className="font-medium">
+            {bouncedEmails.length} email{bouncedEmails.length > 1 ? "s" : ""} rebondi
+            {bouncedEmails.length > 1 ? "s" : ""}
+          </p>
+          <p className="mt-1 text-xs">
+            Les prospects avec un numéro sont dans la liste{" "}
+            <strong>Emails rebondis — à appeler</strong>.
+          </p>
+          <ul className="mt-2 space-y-1 text-xs">
+            {bouncedEmails.map((email) => (
+              <li key={email.id}>
+                {email.prospect?.nomEntreprise} ({email.prospect?.email}) :{" "}
+                {email.errorMessage ?? "Adresse refusée"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(stats.emailsSent > 0 || failedEmails.length > 0 || bouncedEmails.length > 0) && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => {
+              setMessage(null);
+              setError(null);
+              startTransition(async () => {
+                const result = await syncResendBouncesAction();
+                if (!result.success) {
+                  setError(result.error);
+                  return;
+                }
+                const { bounced, handled, addedToPhoneList } = result.result;
+                setMessage(
+                  `${handled} rebond${handled > 1 ? "s" : ""} traité${handled > 1 ? "s" : ""} (${bounced} détecté${bounced > 1 ? "s" : ""} sur Resend). ${addedToPhoneList} ajouté${addedToPhoneList > 1 ? "s" : ""} à la liste d'appels.`
+                );
+                router.refresh();
+              });
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-orange-300 px-3 py-2 text-sm font-medium text-orange-900 hover:bg-orange-50 disabled:opacity-50 dark:border-orange-800 dark:text-orange-200 dark:hover:bg-orange-950"
+          >
+            <Phone className="h-4 w-4" />
+            Synchroniser les rebonds Resend
+          </button>
+          <p className="text-xs text-zinc-500">
+            Importe les emails rebondis dans la liste d&apos;appels.
+          </p>
+        </div>
+      )}
+
       {failedEmails.length > 0 && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
           <p className="font-medium">
@@ -368,6 +425,7 @@ export function CampaignDetailPanel({
                   </td>
                   <td className="px-4 py-3 text-xs text-zinc-500">
                     {email.sentAt && <p>Envoyé : {formatDate(email.sentAt)}</p>}
+                    {email.bouncedAt && <p>Rebondi : {formatDate(email.bouncedAt)}</p>}
                     {email.openedAt && <p>Ouvert : {formatDate(email.openedAt)}</p>}
                     {email.repliedAt && <p>Répondu : {formatDate(email.repliedAt)}</p>}
                     {email.scheduledAt && email.statut === "scheduled" && (

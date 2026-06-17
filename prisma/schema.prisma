@@ -136,6 +136,7 @@ enum CampaignEmailStatus {
   SENDING
   SENT
   FAILED
+  BOUNCED
   OPENED
   REPLIED
 }
@@ -170,8 +171,10 @@ model CampaignEmail {
   personalizationHook String?
   analysisSummary     String?
   statut              CampaignEmailStatus @default(DRAFT)
+  resendEmailId       String?             @unique
   scheduledAt         DateTime?
   sentAt              DateTime?
+  bouncedAt           DateTime?
   openedAt            DateTime?
   repliedAt           DateTime?
   errorMessage        String?

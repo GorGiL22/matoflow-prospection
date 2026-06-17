@@ -55,6 +55,7 @@ const EMAIL_TO_DOMAIN: Record<PrismaCampaignEmailStatus, CampaignEmailStatus> = 
   SENDING: "sending",
   SENT: "sent",
   FAILED: "failed",
+  BOUNCED: "bounced",
   OPENED: "opened",
   REPLIED: "replied",
 };
@@ -65,6 +66,7 @@ const EMAIL_TO_PRISMA: Record<CampaignEmailStatus, PrismaCampaignEmailStatus> = 
   sending: "SENDING",
   sent: "SENT",
   failed: "FAILED",
+  bounced: "BOUNCED",
   opened: "OPENED",
   replied: "REPLIED",
 };

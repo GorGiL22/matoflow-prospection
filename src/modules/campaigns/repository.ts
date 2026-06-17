@@ -89,6 +89,8 @@ function toCampaignEmail(record: {
   openedAt: Date | null;
   repliedAt: Date | null;
   errorMessage: string | null;
+  resendEmailId?: string | null;
+  bouncedAt?: Date | null;
   dateCreation: Date;
   dateModification: Date;
   prospect?: {
@@ -115,6 +117,8 @@ function toCampaignEmail(record: {
     openedAt: record.openedAt?.toISOString() ?? null,
     repliedAt: record.repliedAt?.toISOString() ?? null,
     errorMessage: record.errorMessage,
+    resendEmailId: record.resendEmailId ?? null,
+    bouncedAt: record.bouncedAt?.toISOString() ?? null,
     dateCreation: record.dateCreation.toISOString(),
     dateModification: record.dateModification.toISOString(),
     ...(record.prospect
@@ -595,7 +599,7 @@ export class CampaignRepository {
     return null;
   }
 
-  async markEmailSent(id: string): Promise<void> {
+  async markEmailSent(id: string, resendEmailId?: string): Promise<void> {
     const email = await prisma.campaignEmail.findUnique({
       where: { id },
       include: { prospect: true, campaign: true },
@@ -610,7 +614,11 @@ export class CampaignRepository {
     await prisma.$transaction([
       prisma.campaignEmail.updateMany({
         where: { id, statut: { in: ["SENDING", "SCHEDULED"] } },
-        data: { statut: "SENT", sentAt: new Date() },
+        data: {
+          statut: "SENT",
+          sentAt: new Date(),
+          ...(resendEmailId ? { resendEmailId } : {}),
+        },
       }),
       ...(shouldMarkContacted
         ? [
@@ -682,7 +690,7 @@ export class CampaignRepository {
       prisma.campaignEmail.count({
         where: {
           campaignId,
-          statut: { in: ["SENT", "FAILED", "OPENED", "REPLIED"] },
+          statut: { in: ["SENT", "FAILED", "OPENED", "REPLIED", "BOUNCED"] },
         },
       }),
     ]);
@@ -764,7 +772,7 @@ export class CampaignRepository {
       scheduled: emails.filter(
         (e) => e.statut === "SCHEDULED" || e.statut === "SENDING"
       ).length,
-      failed: emails.filter((e) => e.statut === "FAILED").length,
+      failed: emails.filter((e) => e.statut === "FAILED" || e.statut === "BOUNCED").length,
     };
   }
 
@@ -867,6 +875,76 @@ export class CampaignRepository {
     ]);
 
     return { unblocked: prospectIds.length };
+  }
+
+  async findCampaignEmailByResendId(resendEmailId: string) {
+    return prisma.campaignEmail.findUnique({
+      where: { resendEmailId },
+      include: { prospect: true, campaign: true },
+    });
+  }
+
+  async findCampaignEmailById(campaignEmailId: string) {
+    return prisma.campaignEmail.findUnique({
+      where: { id: campaignEmailId },
+      include: { prospect: true, campaign: true },
+    });
+  }
+
+  async findLatestSentCampaignEmailByRecipient(email: string) {
+    const normalized = email.trim().toLowerCase();
+    return prisma.campaignEmail.findFirst({
+      where: {
+        statut: { in: ["SENT", "OPENED", "REPLIED", "BOUNCED"] },
+        prospect: { emailNormalise: normalized },
+      },
+      orderBy: { sentAt: "desc" },
+      include: { prospect: true, campaign: true },
+    });
+  }
+
+  async markEmailBounced(
+    id: string,
+    input: { message: string; resendEmailId?: string }
+  ): Promise<void> {
+    const email = await prisma.campaignEmail.findUnique({
+      where: { id },
+      include: { prospect: true },
+    });
+    if (!email || email.statut === "BOUNCED") return;
+
+    await prisma.$transaction([
+      prisma.campaignEmail.update({
+        where: { id },
+        data: {
+          statut: "BOUNCED",
+          bouncedAt: new Date(),
+          errorMessage: input.message,
+          ...(input.resendEmailId ? { resendEmailId: input.resendEmailId } : {}),
+        },
+      }),
+      prisma.prospect.update({
+        where: { id: email.prospectId },
+        data: {
+          statutCommercial: "À appeler",
+          commentaireCommercial: `Email rebondi (${new Date().toLocaleDateString("fr-FR")}) : ${input.message}`.slice(
+            0,
+            500
+          ),
+        },
+      }),
+      prisma.activite.create({
+        data: {
+          prospectId: email.prospectId,
+          type: "campagne_email",
+          description: "Email de campagne rebondi — ajouté à la liste d'appels",
+          metadata: JSON.stringify({
+            campaignEmailId: id,
+            bounceMessage: input.message,
+          }),
+        },
+      }),
+    ]);
   }
 }
 

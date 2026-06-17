@@ -89,6 +89,55 @@ export class PhoneListRepository {
     return result.count;
   }
 
+  async findByName(nom: string) {
+    return prisma.phoneList.findFirst({
+      where: { nom },
+      include: { _count: { select: { items: true } } },
+    });
+  }
+
+  async getOrCreateByName(nom: string): Promise<PhoneListSummary> {
+    const existing = await this.findByName(nom);
+    if (existing) return toPhoneListSummary(existing);
+    return this.create(nom);
+  }
+
+  async addProspectIfHasPhone(
+    listId: string,
+    prospectId: string
+  ): Promise<{ added: boolean; reason?: string }> {
+    const prospect = await prisma.prospect.findUnique({
+      where: { id: prospectId },
+    });
+    if (!prospect) return { added: false, reason: "Prospect introuvable" };
+
+    const mapped = toProspect(prospect);
+    if (!hasValidProspectPhone(mapped)) {
+      return { added: false, reason: "Pas de numéro de téléphone" };
+    }
+
+    const existing = await prisma.phoneListItem.findFirst({
+      where: { listId, prospectId },
+    });
+    if (existing) return { added: false, reason: "Déjà dans la liste" };
+
+    await prisma.phoneListItem.create({
+      data: {
+        listId,
+        prospectId,
+        nomEntreprise: mapped.nomEntreprise,
+        telephone: formatPhoneDisplay(mapped.telephone)!,
+        ville: mapped.ville,
+      },
+    });
+    await prisma.phoneList.update({
+      where: { id: listId },
+      data: { dateModification: new Date() },
+    });
+
+    return { added: true };
+  }
+
   async removeItem(itemId: string): Promise<void> {
     const item = await prisma.phoneListItem.delete({ where: { id: itemId } });
     await prisma.phoneList.update({

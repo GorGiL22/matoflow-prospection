@@ -125,6 +125,18 @@ export async function exportCampaignReportCsvAction(campaignId: string) {
   }
 }
 
+export async function syncResendBouncesAction() {
+  try {
+    const result = await campaignService.syncResendBounces();
+    revalidatePath("/campagnes");
+    revalidatePath("/prospects/listes-numeros");
+    return { success: true as const, result };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erreur serveur";
+    return { success: false as const, error: message };
+  }
+}
+
 const testEmailSchema = z.object({
   campaignId: z.string().min(1),
   toEmail: z.string().email("Email invalide"),

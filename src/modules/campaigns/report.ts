@@ -62,7 +62,7 @@ export function isCampaignQueueFinished(
   if (campaign.statut === "draft" || stats.scheduled > 0) return false;
 
   const processed = emails.filter((email) =>
-    ["sent", "failed", "opened", "replied"].includes(email.statut)
+    ["sent", "failed", "bounced", "opened", "replied"].includes(email.statut)
   ).length;
   const readyDrafts = emails.filter(
     (email) => email.statut === "draft" && email.subject

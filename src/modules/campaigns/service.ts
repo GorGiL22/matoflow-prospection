@@ -231,6 +231,10 @@ export class CampaignService {
     return processCampaignSendQueue();
   }
 
+  syncResendBounces() {
+    return import("@/modules/campaigns/resend-sync").then((m) => m.syncResendBounces());
+  }
+
   getStats(campaignId: string): Promise<CampaignDashboardStats> {
     return campaignRepository.getDashboardStats(campaignId);
   }

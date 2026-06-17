@@ -35,6 +35,9 @@ export const CAMPAIGN_DEFAULTS = {
   maxWords: 120,
 } as const;
 
+/** Liste d'appels créée automatiquement quand un email de campagne rebondit. */
+export const BOUNCED_EMAILS_PHONE_LIST_NAME = "Emails rebondis — à appeler";
+
 export const CAMPAIGN_GENERIC_TEMPLATE_DEFAULTS = {
   subject: "Question sur vos devis et planning — {nomEntreprise}",
   body: `Bonjour,

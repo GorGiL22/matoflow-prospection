@@ -1,5 +1,6 @@
 import { sendEmail } from "@/lib/email/send";
 import { getCampaignTrackingBaseUrl } from "@/lib/campaign-tracking";
+import { getCampaignEmailTagName } from "@/modules/campaigns/bounce-handler";
 import { campaignRepository } from "@/modules/campaigns/repository";
 import { canSendNow } from "@/modules/campaigns/scheduler";
 
@@ -80,14 +81,15 @@ export async function processCampaignSendQueue(): Promise<{
 
       try {
         const html = injectTrackingPixel(textToHtml(next.body), next.id);
-        await sendEmail({
+        const sent = await sendEmail({
           to: next.prospect.email,
           subject: next.subject,
           text: next.body,
           html,
+          tags: [{ name: getCampaignEmailTagName(), value: next.id }],
         });
 
-        await campaignRepository.markEmailSent(next.id);
+        await campaignRepository.markEmailSent(next.id, sent.id);
         await campaignRepository.incrementSentToday(campaign.id);
 
         return { processed: true, campaignId: campaign.id, emailId: next.id };
