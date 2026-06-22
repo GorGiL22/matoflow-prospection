@@ -5,6 +5,7 @@ import { prospectService } from "@/modules/prospects/service";
 import { ProspectActions } from "@/components/prospects/prospect-actions";
 import { ProspectHistory } from "@/components/prospects/prospect-history";
 import { ProspectNotes } from "@/components/prospects/prospect-notes";
+import { ProspectCommentField } from "@/components/prospects/prospect-comment-field";
 import { ProspectDeleteButton } from "@/components/prospects/prospect-delete-button";
 import { ProspectStatusActions } from "@/components/prospects/prospect-status-actions";
 import { Badge } from "@/components/ui/badge";
@@ -129,11 +130,24 @@ export default async function ProspectDetailPage({ params }: PageProps) {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Notes" description="Notes internes sur ce prospect" />
-          <ProspectNotes prospectId={prospect.id} notes={notes} />
+          <CardHeader
+            title="Commentaire"
+            description="Suivi commercial — synchronisé avec l'export Google Sheets"
+          />
+          <ProspectCommentField
+            prospectId={prospect.id}
+            initialValue={prospect.commentaireCommercial}
+          />
         </Card>
 
         <Card>
+          <CardHeader title="Notes" description="Historique de notes horodatées" />
+          <ProspectNotes prospectId={prospect.id} notes={notes} />
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="lg:col-span-2">
           <CardHeader title="Historique" description="Activités et événements" />
           <ProspectHistory activites={activites} />
         </Card>

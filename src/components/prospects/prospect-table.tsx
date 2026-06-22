@@ -10,6 +10,7 @@ import { ProspectDeleteButton } from "@/components/prospects/prospect-delete-but
 import { ProspectContactFilter, DEFAULT_CONTACT_FILTERS, type ContactFilters, type ContactFieldFilter } from "@/components/prospects/prospect-contact-filter";
 import { ProspectStatusFilter } from "@/components/prospects/prospect-status-filter";
 import { ProspectStatusQuickActions } from "@/components/prospects/prospect-status-quick-actions";
+import { ProspectCommentField } from "@/components/prospects/prospect-comment-field";
 import type { Prospect, ProspectStatus } from "@/types/prospect";
 
 type ScoreSort = "desc" | "asc" | "default";
@@ -63,6 +64,7 @@ function matchesSearchQuery(prospect: Prospect, query: string): boolean {
     prospect.siteWeb,
     prospect.siret,
     prospect.description,
+    prospect.commentaireCommercial,
   ]
     .filter(Boolean)
     .join(" ")
@@ -235,7 +237,7 @@ export function ProspectTable({ prospects }: ProspectTableProps) {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-surface">
-          <table className="w-full min-w-[1100px] text-left text-sm">
+          <table className="w-full min-w-[1280px] text-left text-sm">
             <thead className="border-b border-border bg-surface-muted/60">
               <tr>
                 <th className="px-4 py-3 font-medium text-muted">
@@ -255,6 +257,9 @@ export function ProspectTable({ prospects }: ProspectTableProps) {
                 </th>
                 <th className="px-4 py-3 font-medium text-muted">
                   Ville
+                </th>
+                <th className="min-w-[14rem] px-4 py-3 font-medium text-muted">
+                  Commentaire
                 </th>
                 <th className="px-4 py-3 font-medium text-muted">
                   Avis Google
@@ -330,6 +335,13 @@ export function ProspectTable({ prospects }: ProspectTableProps) {
                   </td>
                   <td className="px-4 py-3 text-muted">
                     {prospect.ville ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <ProspectCommentField
+                      prospectId={prospect.id}
+                      initialValue={prospect.commentaireCommercial}
+                      compact
+                    />
                   </td>
                   <td className="px-4 py-3 text-muted">
                     {prospect.avisGoogle > 0 ? prospect.avisGoogle : "—"}

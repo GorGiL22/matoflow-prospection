@@ -59,6 +59,33 @@ export async function createProspectAction(input: z.infer<typeof createProspectS
   }
 }
 
+const commentSchema = z.object({
+  prospectId: z.string().min(1),
+  commentaire: z.string().max(2000).nullable(),
+});
+
+export async function updateProspectCommentAction(
+  input: z.infer<typeof commentSchema>
+) {
+  try {
+    const parsed = commentSchema.parse(input);
+    const prospect = await prospectService.updateProspectComment(
+      parsed.prospectId,
+      parsed.commentaire
+    );
+    revalidateProspectPages(parsed.prospectId);
+    return { success: true as const, prospect };
+  } catch (error) {
+    const message =
+      error instanceof z.ZodError
+        ? error.issues[0]?.message ?? "Données invalides"
+        : error instanceof Error
+          ? error.message
+          : "Erreur serveur";
+    return { success: false as const, error: message };
+  }
+}
+
 export async function addNoteAction(input: z.infer<typeof noteSchema>) {
   try {
     const parsed = noteSchema.parse(input);

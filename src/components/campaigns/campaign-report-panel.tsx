@@ -1,13 +1,18 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Download, FileBarChart2, Loader2 } from "lucide-react";
-import { exportCampaignReportCsvAction } from "@/actions/campaigns";
+import Link from "next/link";
+import { Download, FileBarChart2, Loader2, Phone } from "lucide-react";
+import { exportCampaignReportCsvAction, populateNoReplyCallListAction } from "@/actions/campaigns";
 import { Card, CardHeader } from "@/components/ui/card";
-import type { CampaignReport } from "@/types/campaign";
+import { buildCampaignNoReplyPhoneListName } from "@/modules/campaigns/no-reply-follow-up";
+import type { CampaignReport, EmailCampaignStatus } from "@/types/campaign";
 
 interface CampaignReportPanelProps {
   report: CampaignReport;
+  campaignId: string;
+  campaignStatus: EmailCampaignStatus;
+  noReplyCount: number;
 }
 
 function formatDate(iso: string | null): string {
@@ -31,9 +36,36 @@ function downloadCsv(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function CampaignReportPanel({ report }: CampaignReportPanelProps) {
+export function CampaignReportPanel({
+  report,
+  campaignId,
+  campaignStatus,
+  noReplyCount,
+}: CampaignReportPanelProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [listMessage, setListMessage] = useState<string | null>(null);
+  const [listId, setListId] = useState<string | null>(null);
+  const listName = buildCampaignNoReplyPhoneListName(report.campaignName);
+  const showCallList =
+    campaignStatus === "completed" || report.stats.scheduled === 0;
+
+  function handlePopulateCallList() {
+    setError(null);
+    setListMessage(null);
+    startTransition(async () => {
+      const result = await populateNoReplyCallListAction(campaignId);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      const { added, total, withoutPhone, listId: id } = result.result;
+      setListId(id);
+      setListMessage(
+        `${added} prospect${added > 1 ? "s" : ""} ajouté${added > 1 ? "s" : ""} à la liste d'appels (${total} sans réponse${withoutPhone > 0 ? `, ${withoutPhone} sans numéro` : ""}).`
+      );
+    });
+  }
 
   function handleExport() {
     setError(null);
@@ -72,6 +104,50 @@ export function CampaignReportPanel({ report }: CampaignReportPanelProps) {
           <p className="text-sm text-blue-800 dark:text-blue-300">
             Campagne terminée le {formatDate(report.completedAt)}.
           </p>
+        )}
+
+        {showCallList && noReplyCount > 0 && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-3 dark:border-emerald-900 dark:bg-emerald-950/40">
+            <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
+              {noReplyCount} prospect{noReplyCount > 1 ? "s" : ""} contacté
+              {noReplyCount > 1 ? "s" : ""} sans réponse
+            </p>
+            <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-300">
+              Liste d&apos;appels : <strong>{listName}</strong>
+              {campaignStatus === "completed" &&
+                " (créée automatiquement à la fin de la campagne)."}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={handlePopulateCallList}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Phone className="h-4 w-4" />
+                )}
+                {campaignStatus === "completed"
+                  ? "Actualiser la liste d'appels"
+                  : "Créer la liste d'appels"}
+              </button>
+              {listId && (
+                <Link
+                  href={`/prospects/listes-numeros/${listId}`}
+                  className="text-sm font-medium text-emerald-700 underline dark:text-emerald-300"
+                >
+                  Voir la liste
+                </Link>
+              )}
+            </div>
+            {listMessage && (
+              <p className="mt-2 text-xs text-emerald-800 dark:text-emerald-300">
+                {listMessage}
+              </p>
+            )}
+          </div>
         )}
 
         {report.pendingDraft > 0 && (

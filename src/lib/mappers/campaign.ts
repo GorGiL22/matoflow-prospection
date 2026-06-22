@@ -84,8 +84,15 @@ export function toPrismaEmailCampaignStatus(
 }
 
 export function toCampaignEmailStatus(
-  statut: PrismaCampaignEmailStatus
+  statut: PrismaCampaignEmailStatus,
+  errorMessage?: string | null
 ): CampaignEmailStatus {
+  if (
+    statut === "FAILED" &&
+    errorMessage?.startsWith("BOUNCE:")
+  ) {
+    return "bounced";
+  }
   return EMAIL_TO_DOMAIN[statut];
 }
 

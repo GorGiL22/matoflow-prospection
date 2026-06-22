@@ -53,6 +53,12 @@ export async function handleCampaignEmailBounce(input: {
   if (campaignEmail.statut === "BOUNCED") {
     return { handled: true, addedToPhoneList: false, reason: "Déjà traité" };
   }
+  if (
+    campaignEmail.statut === "FAILED" &&
+    campaignEmail.errorMessage?.startsWith("BOUNCE:")
+  ) {
+    return { handled: true, addedToPhoneList: false, reason: "Déjà traité" };
+  }
 
   await campaignRepository.markEmailBounced(campaignEmail.id, {
     message: input.message,

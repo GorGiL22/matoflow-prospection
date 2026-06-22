@@ -125,11 +125,50 @@ export async function exportCampaignReportCsvAction(campaignId: string) {
   }
 }
 
+export async function repairMisclassifiedSendsAction(campaignId?: string) {
+  try {
+    const result = await campaignService.repairMisclassifiedSends(campaignId);
+    revalidatePath("/campagnes");
+    if (campaignId) revalidatePath(`/campagnes/${campaignId}`);
+    return { success: true as const, result };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erreur serveur";
+    return { success: false as const, error: message };
+  }
+}
+
 export async function syncResendBouncesAction() {
   try {
     const result = await campaignService.syncResendBounces();
     revalidatePath("/campagnes");
     revalidatePath("/prospects/listes-numeros");
+    return { success: true as const, result };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erreur serveur";
+    return { success: false as const, error: message };
+  }
+}
+
+export async function completeCampaignIfDoneAction(campaignId: string) {
+  try {
+    const completed = await campaignService.tryCompleteCampaign(campaignId);
+    revalidatePath("/campagnes");
+    revalidatePath(`/campagnes/${campaignId}`);
+    revalidatePath("/prospects/listes-numeros");
+    return { success: true as const, completed };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erreur serveur";
+    return { success: false as const, error: message };
+  }
+}
+
+export async function populateNoReplyCallListAction(campaignId: string) {
+  try {
+    const result = await campaignService.populateNoReplyCallList(campaignId);
+    revalidatePath("/campagnes");
+    revalidatePath(`/campagnes/${campaignId}`);
+    revalidatePath("/prospects/listes-numeros");
+    revalidatePath(`/prospects/listes-numeros/${result.listId}`);
     return { success: true as const, result };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur serveur";

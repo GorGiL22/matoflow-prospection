@@ -6,6 +6,7 @@ import {
   buildCampaignReportSummary,
 } from "@/modules/campaigns/report";
 import { campaignRepository } from "@/modules/campaigns/repository";
+import { countNoReplyProspects } from "@/modules/campaigns/no-reply-follow-up";
 import { buildSendSchedule } from "@/modules/campaigns/scheduler";
 import { processCampaignSendQueue } from "@/modules/campaigns/sender";
 import type {
@@ -25,17 +26,31 @@ export class CampaignService {
   }
 
   async getCampaignDetail(id: string) {
-    const [campaign, emails, stats] = await Promise.all([
-      campaignRepository.getCampaign(id),
+    let campaign = await campaignRepository.getCampaign(id);
+    if (!campaign) return null;
+
+    if (campaign.statut === "active") {
+      const completed = await campaignRepository.maybeCompleteCampaign(id);
+      if (completed) {
+        campaign = await campaignRepository.getCampaign(id);
+      }
+    }
+
+    if (!campaign) return null;
+
+    const [emails, stats] = await Promise.all([
       campaignRepository.listCampaignEmails(id),
       campaignRepository.getDashboardStats(id),
     ]);
 
-    if (!campaign) return null;
-
     const report = buildCampaignReportSummary(campaign, emails, stats);
+    const noReplyCount = await countNoReplyProspects(id);
 
-    return { campaign, emails, stats, report };
+    return { campaign, emails, stats, report, noReplyCount };
+  }
+
+  tryCompleteCampaign(campaignId: string) {
+    return campaignRepository.maybeCompleteCampaign(campaignId);
   }
 
   async exportCampaignReportCsv(campaignId: string): Promise<{
@@ -233,6 +248,18 @@ export class CampaignService {
 
   syncResendBounces() {
     return import("@/modules/campaigns/resend-sync").then((m) => m.syncResendBounces());
+  }
+
+  repairMisclassifiedSends(campaignId?: string) {
+    return import("@/modules/campaigns/repair-sends").then((m) =>
+      m.repairMisclassifiedCampaignSends(campaignId)
+    );
+  }
+
+  populateNoReplyCallList(campaignId: string) {
+    return import("@/modules/campaigns/no-reply-follow-up").then((m) =>
+      m.populateNoReplyCallList(campaignId)
+    );
   }
 
   getStats(campaignId: string): Promise<CampaignDashboardStats> {

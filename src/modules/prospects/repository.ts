@@ -131,6 +131,9 @@ function buildProspectData(data: ProspectUpdate) {
     ...(data.scriptAppelGenere !== undefined && {
       scriptAppelGenere: data.scriptAppelGenere,
     }),
+    ...(data.commentaireCommercial !== undefined && {
+      commentaireCommercial: data.commentaireCommercial?.trim() || null,
+    }),
     ...normalized,
   };
 }
@@ -293,6 +296,28 @@ export class ProspectRepository {
     });
 
     await this.createActivity(record.id, "creation", "Prospect créé");
+
+    return toProspect(record);
+  }
+
+  async updateCommercialComment(
+    id: string,
+    commentaireCommercial: string | null
+  ): Promise<Prospect> {
+    const existing = await prisma.prospect.findUnique({ where: { id } });
+    if (!existing) {
+      throw new Error("Prospect introuvable");
+    }
+
+    const normalized = commentaireCommercial?.trim() || null;
+    if (existing.commentaireCommercial === normalized) {
+      return toProspect(existing);
+    }
+
+    const record = await prisma.prospect.update({
+      where: { id },
+      data: { commentaireCommercial: normalized },
+    });
 
     return toProspect(record);
   }

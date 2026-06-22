@@ -75,6 +75,7 @@ export function toProspect(record: PrismaProspect): Prospect {
     emailGenere: record.emailGenere,
     linkedinGenere: record.linkedinGenere,
     scriptAppelGenere: record.scriptAppelGenere,
+    commentaireCommercial: record.commentaireCommercial,
   };
 }
 

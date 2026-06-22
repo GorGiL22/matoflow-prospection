@@ -45,6 +45,7 @@ export interface Prospect {
   emailGenere: string | null;
   linkedinGenere: string | null;
   scriptAppelGenere: string | null;
+  commentaireCommercial: string | null;
 }
 
 export interface ProspectInsert {
@@ -68,6 +69,7 @@ export interface ProspectUpdate extends Partial<ProspectInsert> {
   emailGenere?: string | null;
   linkedinGenere?: string | null;
   scriptAppelGenere?: string | null;
+  commentaireCommercial?: string | null;
 }
 
 export interface ProspectNote {

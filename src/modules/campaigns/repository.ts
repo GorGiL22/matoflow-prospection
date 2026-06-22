@@ -1,4 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import { storeResendEmailIdSafely } from "@/modules/campaigns/resend-id";
+import {
+  isBouncedCampaignEmailRecord,
+  PENDING_CAMPAIGN_EMAIL_STATUSES,
+} from "@/modules/campaigns/email-status";
 import {
   toCampaignContentMode,
   toCampaignEmailStatus,
@@ -111,7 +116,10 @@ function toCampaignEmail(record: {
     body: record.body,
     personalizationHook: record.personalizationHook,
     analysisSummary: record.analysisSummary,
-    statut: toCampaignEmailStatus(record.statut),
+    statut: toCampaignEmailStatus(
+      record.statut,
+      record.errorMessage
+    ),
     scheduledAt: record.scheduledAt?.toISOString() ?? null,
     sentAt: record.sentAt?.toISOString() ?? null,
     openedAt: record.openedAt?.toISOString() ?? null,
@@ -617,7 +625,6 @@ export class CampaignRepository {
         data: {
           statut: "SENT",
           sentAt: new Date(),
-          ...(resendEmailId ? { resendEmailId } : {}),
         },
       }),
       ...(shouldMarkContacted
@@ -658,6 +665,10 @@ export class CampaignRepository {
         : []),
     ]);
 
+    if (resendEmailId) {
+      await storeResendEmailIdSafely(id, resendEmailId);
+    }
+
     await this.maybeCompleteCampaign(email.campaignId);
   }
 
@@ -678,6 +689,8 @@ export class CampaignRepository {
   }
 
   async maybeCompleteCampaign(campaignId: string): Promise<boolean> {
+    await this.releaseStuckSendingEmails();
+
     const campaign = await prisma.emailCampaign.findUnique({
       where: { id: campaignId },
     });
@@ -690,17 +703,35 @@ export class CampaignRepository {
       prisma.campaignEmail.count({
         where: {
           campaignId,
-          statut: { in: ["SENT", "FAILED", "OPENED", "REPLIED", "BOUNCED"] },
+          statut: { notIn: [...PENDING_CAMPAIGN_EMAIL_STATUSES] },
         },
       }),
     ]);
 
-    if (scheduled > 0 || processed === 0) return false;
+    const pendingReadyDrafts = await prisma.campaignEmail.count({
+      where: {
+        campaignId,
+        statut: "DRAFT",
+        subject: { not: null },
+      },
+    });
+
+    if (scheduled > 0 || processed === 0 || pendingReadyDrafts > 0) {
+      return false;
+    }
 
     await prisma.emailCampaign.update({
       where: { id: campaignId },
       data: { statut: "COMPLETED" },
     });
+
+    const { populateNoReplyCallList } = await import(
+      "@/modules/campaigns/no-reply-follow-up"
+    );
+    populateNoReplyCallList(campaignId).catch((error) => {
+      console.error("[campaigns] Liste d'appels sans réponse:", error);
+    });
+
     return true;
   }
 
@@ -772,7 +803,8 @@ export class CampaignRepository {
       scheduled: emails.filter(
         (e) => e.statut === "SCHEDULED" || e.statut === "SENDING"
       ).length,
-      failed: emails.filter((e) => e.statut === "FAILED" || e.statut === "BOUNCED").length,
+      failed: emails.filter((e) => isBouncedCampaignEmailRecord(e) || e.statut === "FAILED")
+        .length,
     };
   }
 
@@ -895,7 +927,13 @@ export class CampaignRepository {
     const normalized = email.trim().toLowerCase();
     return prisma.campaignEmail.findFirst({
       where: {
-        statut: { in: ["SENT", "OPENED", "REPLIED", "BOUNCED"] },
+        OR: [
+          { statut: { in: ["SENT", "OPENED", "REPLIED"] } },
+          {
+            statut: "FAILED",
+            errorMessage: { startsWith: "BOUNCE:" },
+          },
+        ],
         prospect: { emailNormalise: normalized },
       },
       orderBy: { sentAt: "desc" },
@@ -911,23 +949,24 @@ export class CampaignRepository {
       where: { id },
       include: { prospect: true },
     });
-    if (!email || email.statut === "BOUNCED") return;
+    if (!email || isBouncedCampaignEmailRecord(email)) return;
+
+    const bouncedAt = new Date();
+    const bounceMessage = `BOUNCE: ${input.message}`;
 
     await prisma.$transaction([
       prisma.campaignEmail.update({
         where: { id },
         data: {
-          statut: "BOUNCED",
-          bouncedAt: new Date(),
-          errorMessage: input.message,
-          ...(input.resendEmailId ? { resendEmailId: input.resendEmailId } : {}),
+          statut: "FAILED",
+          errorMessage: bounceMessage,
         },
       }),
       prisma.prospect.update({
         where: { id: email.prospectId },
         data: {
           statutCommercial: "À appeler",
-          commentaireCommercial: `Email rebondi (${new Date().toLocaleDateString("fr-FR")}) : ${input.message}`.slice(
+          commentaireCommercial: `Email rebondi (${bouncedAt.toLocaleDateString("fr-FR")}) : ${input.message}`.slice(
             0,
             500
           ),
@@ -945,6 +984,10 @@ export class CampaignRepository {
         },
       }),
     ]);
+
+    if (input.resendEmailId) {
+      await storeResendEmailIdSafely(id, input.resendEmailId);
+    }
   }
 }
 

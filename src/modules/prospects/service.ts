@@ -88,6 +88,14 @@ export class ProspectService {
     return repository.delete(id);
   }
 
+  async updateProspectComment(
+    id: string,
+    commentaire: string | null
+  ): Promise<Prospect> {
+    await this.getProspect(id);
+    return repository.updateCommercialComment(id, commentaire);
+  }
+
   async addNote(prospectId: string, contenu: string): Promise<ProspectNote> {
     if (!contenu.trim()) {
       throw new Error("Le contenu de la note est requis");

@@ -12,6 +12,8 @@ import {
   sendCampaignTestEmailAction,
   processCampaignQueueAction,
   syncResendBouncesAction,
+  repairMisclassifiedSendsAction,
+  completeCampaignIfDoneAction,
 } from "@/actions/campaigns";
 import { Card, CardHeader } from "@/components/ui/card";
 import {
@@ -46,6 +48,7 @@ interface CampaignDetailPanelProps {
   emails: CampaignEmail[];
   stats: CampaignDashboardStats;
   report: CampaignReport;
+  noReplyCount: number;
 }
 
 const statusBadge: Record<string, string> = {
@@ -67,6 +70,7 @@ export function CampaignDetailPanel({
   emails,
   stats,
   report,
+  noReplyCount,
 }: CampaignDetailPanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -310,10 +314,36 @@ export function CampaignDetailPanel({
 
       {failedEmails.length > 0 && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-          <p className="font-medium">
-            {failedEmails.length} envoi{failedEmails.length > 1 ? "s" : ""} en
-            échec
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <p className="font-medium">
+              {failedEmails.length} envoi{failedEmails.length > 1 ? "s" : ""} en
+              échec
+            </p>
+            {failedEmails.some((e) => e.errorMessage?.includes("resendEmailId")) && (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  setMessage(null);
+                  setError(null);
+                  startTransition(async () => {
+                    const result = await repairMisclassifiedSendsAction(campaign.id);
+                    if (!result.success) {
+                      setError(result.error);
+                      return;
+                    }
+                    setMessage(
+                      `${result.result.repaired} envoi${result.result.repaired > 1 ? "s" : ""} corrigé${result.result.repaired > 1 ? "s" : ""} (envoyés chez Resend mais mal enregistrés).`
+                    );
+                    router.refresh();
+                  });
+                }}
+                className="rounded-lg bg-red-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-800 disabled:opacity-50"
+              >
+                Corriger les envois Resend OK
+              </button>
+            )}
+          </div>
           <ul className="mt-2 space-y-1 text-xs">
             {failedEmails.map((email) => (
               <li key={email.id}>
@@ -368,7 +398,49 @@ export function CampaignDetailPanel({
 
       <CampaignStatsCards stats={stats} />
 
-      {showReport && <CampaignReportPanel report={report} />}
+      {showReport && campaign.statut === "active" && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
+          <p className="font-medium">Tous les emails sont traités</p>
+          <p className="mt-1 text-xs">
+            La campagne peut être marquée comme terminée.
+          </p>
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => {
+              setMessage(null);
+              setError(null);
+              startTransition(async () => {
+                const result = await completeCampaignIfDoneAction(campaign.id);
+                if (!result.success) {
+                  setError(result.error);
+                  return;
+                }
+                if (result.completed) {
+                  setMessage("Campagne marquée comme terminée.");
+                } else {
+                  setError(
+                    "Impossible de terminer : des emails sont encore en attente."
+                  );
+                }
+                router.refresh();
+              });
+            }}
+            className="mt-3 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            Marquer comme terminée
+          </button>
+        </div>
+      )}
+
+      {showReport && (
+        <CampaignReportPanel
+          report={report}
+          campaignId={campaign.id}
+          campaignStatus={campaign.statut}
+          noReplyCount={noReplyCount}
+        />
+      )}
 
       {isGeneric && canEdit && (
         <CampaignGenericTemplateForm campaign={campaign} editable={canEdit} />

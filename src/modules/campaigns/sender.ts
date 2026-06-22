@@ -79,6 +79,7 @@ export async function processCampaignSendQueue(): Promise<{
       const next = await campaignRepository.claimNextScheduledEmail(campaign.id);
       if (!next?.subject || !next.body || !next.prospect.email) continue;
 
+      let resendId: string | undefined;
       try {
         const html = injectTrackingPixel(textToHtml(next.body), next.id);
         const sent = await sendEmail({
@@ -88,17 +89,29 @@ export async function processCampaignSendQueue(): Promise<{
           html,
           tags: [{ name: getCampaignEmailTagName(), value: next.id }],
         });
-
-        await campaignRepository.markEmailSent(next.id, sent.id);
-        await campaignRepository.incrementSentToday(campaign.id);
-
-        return { processed: true, campaignId: campaign.id, emailId: next.id };
+        resendId = sent.id;
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Erreur d'envoi";
         await campaignRepository.markEmailFailed(next.id, message);
         return { processed: true, campaignId: campaign.id, emailId: next.id, error: message };
       }
+
+      try {
+        await campaignRepository.markEmailSent(next.id, resendId);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Erreur d'enregistrement";
+        await campaignRepository.markEmailFailed(
+          next.id,
+          `Envoi Resend OK (${resendId ?? "?"}) mais enregistrement échoué : ${message}`
+        );
+        return { processed: true, campaignId: campaign.id, emailId: next.id, error: message };
+      }
+
+      await campaignRepository.incrementSentToday(campaign.id);
+
+      return { processed: true, campaignId: campaign.id, emailId: next.id };
     }
 
     for (const campaign of active) {

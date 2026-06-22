@@ -29,6 +29,7 @@ export default async function CampagneDetailPage({ params }: PageProps) {
         emails={detail.emails}
         stats={detail.stats}
         report={detail.report}
+        noReplyCount={detail.noReplyCount}
       />
     </div>
   );
