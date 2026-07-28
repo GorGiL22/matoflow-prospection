@@ -13,6 +13,7 @@ import {
   Mail,
   Phone,
   Sparkles,
+  Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/config/constants";
@@ -26,6 +27,7 @@ const navigation = [
   { name: "UNEP", href: "/prospects/recherche-unep", icon: Building2 },
   { name: "Prospects", href: "/prospects", icon: Users },
   { name: "Concepteurs FFP", href: "/prospects/concepteurs-ffp", icon: Sparkles },
+  { name: "Partenaires", href: "/partenaires", icon: Handshake },
   { name: "Listes d'appels", href: "/prospects/listes-numeros", icon: Phone },
   { name: "Campagnes email", href: "/campagnes", icon: Mail },
   { name: "Ajouter", href: "/prospects/nouveau", icon: UserPlus },
@@ -68,6 +70,8 @@ export function Sidebar() {
                       ? pathname === "/prospects"
                       : item.href === "/prospects/concepteurs-ffp"
                         ? pathname.startsWith("/prospects/concepteurs-ffp")
+                      : item.href === "/partenaires"
+                        ? pathname.startsWith("/partenaires")
                       : item.href === "/prospects/listes-numeros"
                         ? pathname.startsWith("/prospects/listes-numeros")
                       : item.href === "/campagnes"

@@ -241,3 +241,133 @@ model PhoneListItem {
   @@index([listId, dateAjout])
   @@index([listId, appele])
 }
+
+enum PartnerType {
+  COOPERATIVE
+  CABINET_COMPTABLE
+  CONSULTANT
+  REVENDEUR
+  DISTRIBUTEUR
+  PEPINIERE
+  FOURNISSEUR
+  ORGANISME_SAP
+  CENTRE_FORMATION
+  FEDERATION
+  RESEAU_PRO
+  AUTRE
+}
+
+enum PartnerStatus {
+  DECOUVERT
+  A_CONTACTER
+  PREMIER_CONTACT
+  RENDEZ_VOUS
+  EN_DISCUSSION
+  PARTENARIAT_SIGNE
+  REFUS
+  SUSPENDU
+}
+
+enum PartnershipKind {
+  APPORTEUR_AFFAIRES
+  REVENDEUR
+  INTEGRATION_API
+  STRATEGIQUE
+  OFFRE_ADHERENTS
+  CO_MARKETING
+}
+
+model Partner {
+  id                    String           @id @default(cuid())
+  nom                   String
+  entreprise            String
+  type                  PartnerType      @default(AUTRE)
+  siteWeb               String?
+  linkedinEntreprise    String?
+  linkedinDirigeant     String?
+  nomDirigeant          String?
+  fonctionDirigeant     String?
+  email                 String?
+  telephone             String?
+  adresse               String?
+  zone                  String?
+  departementsCouverture String?
+  tailleEstimee         String?
+  description           String?
+  servicesProposes      String?
+  hasApi                Boolean?
+  scoreEtoiles          Int?
+  analyseIA             String?
+  partnershipKind       PartnershipKind?
+  statut                PartnerStatus    @default(DECOUVERT)
+  sourceRecherche       String?
+  domaineNormalise      String?          @unique
+  nomNormalise          String?
+  dateCreation          DateTime         @default(now())
+  dateModification      DateTime         @updatedAt
+
+  notes     PartnerNote[]
+  activites PartnerActivite[]
+  drafts    PartnerOutreachDraft[]
+
+  @@index([statut])
+  @@index([type])
+  @@index([scoreEtoiles])
+  @@index([dateCreation])
+  @@index([nomNormalise])
+}
+
+model PartnerNote {
+  id           String   @id @default(cuid())
+  partnerId    String
+  contenu      String
+  dateCreation DateTime @default(now())
+  partner      Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId, dateCreation])
+}
+
+model PartnerActivite {
+  id           String   @id @default(cuid())
+  partnerId    String
+  type         String
+  description  String
+  metadata     String?
+  dateCreation DateTime @default(now())
+  partner      Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId, dateCreation])
+}
+
+model PartnerOutreachDraft {
+  id              String   @id @default(cuid())
+  partnerId       String
+  emailSubject    String?
+  emailBody       String?
+  linkedinMessage String?
+  arguments       String?
+  questionsRdv    String?
+  objections      String?
+  dateCreation    DateTime @default(now())
+  dateModification DateTime @updatedAt
+  partner         Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId, dateCreation])
+}
+
+model PartnerSearchJob {
+  id           String   @id @default(cuid())
+  zone         String
+  types        String   @default("[]")
+  status       String   @default("running")
+  config       String   @default("{}")
+  results      String   @default("[]")
+  logs         String   @default("[]")
+  progress     String?
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([zone, status])
+}
