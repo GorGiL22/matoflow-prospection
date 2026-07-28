@@ -11,10 +11,11 @@ export function ConditionalAppShell({
 }) {
   const pathname = usePathname();
   const isAuthPage = pathname === "/connexion";
+  const isPublicPage = isAuthPage || pathname.startsWith("/desabonnement");
 
   return (
     <AuthSessionProvider>
-      {isAuthPage ? children : <AppShell>{children}</AppShell>}
+      {isPublicPage ? children : <AppShell>{children}</AppShell>}
     </AuthSessionProvider>
   );
 }

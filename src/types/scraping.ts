@@ -23,3 +23,17 @@ export interface UnepCompanyResult {
   activites: string[];
   unepUrl: string;
 }
+
+export interface FfpConcepteurResult {
+  ffpWpId: string;
+  ffpSlug: string;
+  nomEntreprise: string;
+  nomContact: string | null;
+  telephone: string | null;
+  email: string | null;
+  siteWeb: string | null;
+  ville: string | null;
+  adresse: string | null;
+  region: string | null;
+  ffpUrl: string;
+}

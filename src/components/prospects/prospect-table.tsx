@@ -11,10 +11,12 @@ import { ProspectContactFilter, DEFAULT_CONTACT_FILTERS, type ContactFilters, ty
 import { ProspectStatusFilter } from "@/components/prospects/prospect-status-filter";
 import { ProspectStatusQuickActions } from "@/components/prospects/prospect-status-quick-actions";
 import { ProspectCommentField } from "@/components/prospects/prospect-comment-field";
-import type { Prospect, ProspectStatus } from "@/types/prospect";
+import type { Prospect, ProspectCategorie, ProspectStatus } from "@/types/prospect";
+import { CATEGORY_LABELS } from "@/types/prospect";
 
 type ScoreSort = "desc" | "asc" | "default";
 type AnalysisFilter = "all" | "analyzed" | "unanalyzed";
+type CategorieFilter = "all" | ProspectCategorie;
 
 function matchesContactFieldFilter(
   hasValue: boolean,
@@ -27,6 +29,8 @@ function matchesContactFieldFilter(
 
 interface ProspectTableProps {
   prospects: Prospect[];
+  initialCategorieFilter?: CategorieFilter;
+  hideCategorieFilter?: boolean;
 }
 
 function sortProspects(
@@ -78,7 +82,8 @@ function filterProspects(
   searchQuery: string,
   analysisFilter: AnalysisFilter,
   contactFilters: ContactFilters,
-  statusFilter: ProspectStatus[]
+  statusFilter: ProspectStatus[],
+  categorieFilter: CategorieFilter
 ): Prospect[] {
   let filtered = prospects;
 
@@ -126,10 +131,20 @@ function filterProspects(
     filtered = filtered.filter((prospect) => allowed.has(prospect.statut));
   }
 
+  if (categorieFilter !== "all") {
+    filtered = filtered.filter(
+      (prospect) => prospect.categorie === categorieFilter
+    );
+  }
+
   return filtered;
 }
 
-export function ProspectTable({ prospects }: ProspectTableProps) {
+export function ProspectTable({
+  prospects,
+  initialCategorieFilter = "all",
+  hideCategorieFilter = false,
+}: ProspectTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [scoreSort, setScoreSort] = useState<ScoreSort>("desc");
   const [analysisFilter, setAnalysisFilter] = useState<AnalysisFilter>("all");
@@ -137,6 +152,8 @@ export function ProspectTable({ prospects }: ProspectTableProps) {
     DEFAULT_CONTACT_FILTERS
   );
   const [statusFilter, setStatusFilter] = useState<ProspectStatus[]>([]);
+  const [categorieFilter, setCategorieFilter] =
+    useState<CategorieFilter>(initialCategorieFilter);
 
   const displayedProspects = useMemo(() => {
     const filtered = filterProspects(
@@ -144,10 +161,19 @@ export function ProspectTable({ prospects }: ProspectTableProps) {
       searchQuery,
       analysisFilter,
       contactFilters,
-      statusFilter
+      statusFilter,
+      categorieFilter
     );
     return sortProspects(filtered, scoreSort);
-  }, [prospects, searchQuery, analysisFilter, contactFilters, statusFilter, scoreSort]);
+  }, [
+    prospects,
+    searchQuery,
+    analysisFilter,
+    contactFilters,
+    statusFilter,
+    categorieFilter,
+    scoreSort,
+  ]);
 
   if (prospects.length === 0) {
     return (
@@ -193,6 +219,23 @@ export function ProspectTable({ prospects }: ProspectTableProps) {
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          {!hideCategorieFilter && (
+            <select
+              value={categorieFilter}
+              onChange={(e) =>
+                setCategorieFilter(e.target.value as CategorieFilter)
+              }
+              className={selectClassName}
+              aria-label="Filtrer par catégorie"
+            >
+              <option value="all">Toutes catégories</option>
+              <option value="paysagiste">{CATEGORY_LABELS.paysagiste}</option>
+              <option value="concepteur_ffp">
+                {CATEGORY_LABELS.concepteur_ffp}
+              </option>
+            </select>
+          )}
+
           <select
             value={analysisFilter}
             onChange={(e) =>
@@ -242,6 +285,9 @@ export function ProspectTable({ prospects }: ProspectTableProps) {
               <tr>
                 <th className="px-4 py-3 font-medium text-muted">
                   Nom
+                </th>
+                <th className="px-4 py-3 font-medium text-muted">
+                  Catégorie
                 </th>
                 <th className="px-4 py-3 font-medium text-muted">
                   Statut
@@ -300,6 +346,22 @@ export function ProspectTable({ prospects }: ProspectTableProps) {
                     >
                       {prospect.nomEntreprise}
                     </Link>
+                    {prospect.categorie === "concepteur_ffp" && (
+                      <p className="mt-0.5 text-[11px] font-medium text-violet-700">
+                        {CATEGORY_LABELS.concepteur_ffp}
+                      </p>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={
+                        prospect.categorie === "concepteur_ffp"
+                          ? "inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800"
+                          : "inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800"
+                      }
+                    >
+                      {CATEGORY_LABELS[prospect.categorie]}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <ProspectStatusQuickActions

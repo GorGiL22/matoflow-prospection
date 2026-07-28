@@ -2,6 +2,7 @@ import type {
   Activite,
   Note,
   Prospect as PrismaProspect,
+  ProspectCategorie as PrismaProspectCategorie,
   QualificationIA,
   StatutProspect,
 } from "@prisma/client";
@@ -9,6 +10,7 @@ import type {
   AiScoreDetails,
   Prospect,
   ProspectActivity,
+  ProspectCategorie,
   ProspectNote,
   ProspectQualification,
   ProspectStatus,
@@ -35,6 +37,38 @@ const STATUT_TO_PRISMA: Record<ProspectStatus, StatutProspect> = {
   client: "CLIENT",
   refuse: "REFUSE",
 };
+
+const CATEGORIE_TO_DOMAIN: Record<PrismaProspectCategorie, ProspectCategorie> = {
+  PAYSAGISTE: "paysagiste",
+  CONCEPTEUR_FFP: "concepteur_ffp",
+};
+
+const CATEGORIE_TO_PRISMA: Record<ProspectCategorie, PrismaProspectCategorie> = {
+  paysagiste: "PAYSAGISTE",
+  concepteur_ffp: "CONCEPTEUR_FFP",
+};
+
+export function toProspectCategorie(
+  categorie: PrismaProspectCategorie
+): ProspectCategorie {
+  return CATEGORIE_TO_DOMAIN[categorie];
+}
+
+export function toPrismaCategorie(
+  categorie: ProspectCategorie
+): PrismaProspectCategorie {
+  return CATEGORIE_TO_PRISMA[categorie];
+}
+
+function inferProspectCategorie(record: PrismaProspect): ProspectCategorie {
+  if (record.categorie) {
+    return toProspectCategorie(record.categorie);
+  }
+  if (record.ffpSlug || record.description?.includes("FFP:")) {
+    return "concepteur_ffp";
+  }
+  return "paysagiste";
+}
 
 export function toProspectStatus(statut: StatutProspect): ProspectStatus {
   return STATUT_TO_DOMAIN[statut];
@@ -76,6 +110,8 @@ export function toProspect(record: PrismaProspect): Prospect {
     linkedinGenere: record.linkedinGenere,
     scriptAppelGenere: record.scriptAppelGenere,
     commentaireCommercial: record.commentaireCommercial,
+    categorie: inferProspectCategorie(record),
+    ffpSlug: record.ffpSlug,
   };
 }
 

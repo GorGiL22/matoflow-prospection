@@ -10,7 +10,10 @@
     "lint": "eslint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:sync-local": "bash scripts/sync-sqlite-schema.sh",
     "db:studio": "prisma studio",
+    "ffp:import": "npx tsx scripts/import-ffp-concepteurs.ts",
+    "ffp:cleanup": "npx tsx scripts/cleanup-ffp-prospects.ts",
     "postinstall": "bash scripts/prisma-generate.sh"
   },
   "dependencies": {

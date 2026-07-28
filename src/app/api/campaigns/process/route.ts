@@ -6,8 +6,44 @@ export const dynamic = "force-dynamic";
 
 async function runProcess() {
   try {
-    const result = await campaignService.processQueue();
-    return Response.json(result);
+    const startedAt = Date.now();
+    const maxDurationMs = 20_000;
+    let processedAny = false;
+    let processedCount = 0;
+    let lastCampaignId: string | undefined;
+    let lastEmailId: string | undefined;
+    let lastError: string | undefined;
+
+    while (Date.now() - startedAt < maxDurationMs) {
+      const result = await campaignService.processQueue();
+      if (!result.processed) {
+        return Response.json({
+          processed: processedAny,
+          processedCount,
+          campaignId: lastCampaignId,
+          emailId: lastEmailId,
+          error: lastError,
+        });
+      }
+
+      processedAny = true;
+      processedCount += 1;
+      lastCampaignId = result.campaignId;
+      lastEmailId = result.emailId;
+      lastError = result.error;
+
+      if (result.error) {
+        break;
+      }
+    }
+
+    return Response.json({
+      processed: processedAny,
+      processedCount,
+      campaignId: lastCampaignId,
+      emailId: lastEmailId,
+      error: lastError,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur file d'envoi";
     console.error("[campaigns/process]", error);

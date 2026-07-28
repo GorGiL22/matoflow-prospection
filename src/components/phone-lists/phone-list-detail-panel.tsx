@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Check,
   Download,
   Loader2,
   Phone,
+  RotateCcw,
   Search,
   Trash2,
   UserPlus,
@@ -16,17 +18,22 @@ import { inputClassName } from "@/components/ui/input";
 import {
   addProspectsToPhoneListAction,
   deletePhoneListAction,
+  markPhoneListItemCalledAction,
   removePhoneListItemAction,
+  unmarkPhoneListItemCalledAction,
 } from "@/actions/phone-lists";
 import { downloadPhoneListExport } from "@/modules/phone-lists/export";
-import { getScoreColor } from "@/lib/utils";
+import { formatDate, getScoreColor } from "@/lib/utils";
 import { STATUS_SHORT_LABELS, type ProspectStatus } from "@/types/prospect";
 import type {
   PhoneListDetail,
   PhoneListExportFormat,
+  PhoneListItem,
   PhoneListProspectCandidate,
 } from "@/types/phone-list";
 import { cn } from "@/lib/utils";
+
+type CallFilter = "pending" | "called" | "all";
 
 interface PhoneListDetailPanelProps {
   list: PhoneListDetail;
@@ -41,12 +48,28 @@ export function PhoneListDetailPanel({
   const [list, setList] = useState(initialList);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [query, setQuery] = useState("");
+  const [callFilter, setCallFilter] = useState<CallFilter>("pending");
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setList(initialList);
   }, [initialList]);
+
+  const pendingItems = useMemo(
+    () => list.items.filter((item) => !item.appele),
+    [list.items]
+  );
+  const calledItems = useMemo(
+    () => list.items.filter((item) => item.appele),
+    [list.items]
+  );
+
+  const visibleItems = useMemo(() => {
+    if (callFilter === "pending") return pendingItems;
+    if (callFilter === "called") return calledItems;
+    return list.items;
+  }, [callFilter, list.items, pendingItems, calledItems]);
 
   const availableCandidates = useMemo(
     () => candidates.filter((candidate) => !candidate.inList),
@@ -66,6 +89,16 @@ export function PhoneListDetailPanel({
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
+  function updateItem(itemId: string, patch: Partial<PhoneListItem>) {
+    setList((current) => {
+      const items = current.items.map((item) =>
+        item.id === itemId ? { ...item, ...patch } : item
+      );
+      const pendingCount = items.filter((item) => !item.appele).length;
+      return { ...current, items, pendingCount };
+    });
+  }
+
   function toggleCandidate(id: string) {
     if (selectedSet.has(id)) {
       setSelectedIds(selectedIds.filter((item) => item !== id));
@@ -84,8 +117,14 @@ export function PhoneListDetailPanel({
   }
 
   function handleExport(format: PhoneListExportFormat) {
-    if (list.items.length === 0) return;
-    downloadPhoneListExport(list, format);
+    const exportItems =
+      pendingItems.length > 0 ? pendingItems : list.items;
+    if (exportItems.length === 0) return;
+    downloadPhoneListExport(
+      { nom: list.nom, items: exportItems },
+      format,
+      { onlyPending: false }
+    );
   }
 
   function handleAddSelected() {
@@ -109,7 +148,29 @@ export function PhoneListDetailPanel({
         ...current,
         items: current.items.filter((item) => item.id !== itemId),
         itemCount: current.itemCount - 1,
+        pendingCount: current.items.filter(
+          (item) => item.id !== itemId && !item.appele
+        ).length,
       }));
+      router.refresh();
+    });
+  }
+
+  function handleMarkCalled(item: PhoneListItem) {
+    startTransition(async () => {
+      const result = await markPhoneListItemCalledAction(item.id, list.id);
+      updateItem(item.id, {
+        appele: true,
+        dateAppel: result.item.dateAppel,
+      });
+      router.refresh();
+    });
+  }
+
+  function handleUnmarkCalled(item: PhoneListItem) {
+    startTransition(async () => {
+      await unmarkPhoneListItemCalledAction(item.id, list.id);
+      updateItem(item.id, { appele: false, dateAppel: null });
       router.refresh();
     });
   }
@@ -125,13 +186,19 @@ export function PhoneListDetailPanel({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Phone className="h-5 w-5 text-brand" />
             <h2 className="text-lg font-semibold text-foreground">{list.nom}</h2>
-            <Badge variant="default">{list.items.length} numéro{list.items.length > 1 ? "s" : ""}</Badge>
+            <Badge variant="default">
+              {pendingItems.length} à appeler
+            </Badge>
+            {calledItems.length > 0 && (
+              <Badge variant="info">{calledItems.length} appelé{calledItems.length > 1 ? "s" : ""}</Badge>
+            )}
           </div>
           <p className="text-sm text-muted">
-            Exportez la liste en fichier pour la partager avec votre collègue.
+            Marquez chaque contact comme appelé pour éviter les doublons. Les
+            exports n&apos;incluent que les numéros restants à appeler.
           </p>
         </div>
 
@@ -140,7 +207,7 @@ export function PhoneListDetailPanel({
             type="button"
             variant="secondary"
             size="sm"
-            disabled={list.items.length === 0}
+            disabled={pendingItems.length === 0}
             onClick={() => handleExport("csv")}
           >
             <Download className="h-4 w-4" />
@@ -150,7 +217,7 @@ export function PhoneListDetailPanel({
             type="button"
             variant="secondary"
             size="sm"
-            disabled={list.items.length === 0}
+            disabled={pendingItems.length === 0}
             onClick={() => handleExport("txt-numbers")}
           >
             <Download className="h-4 w-4" />
@@ -160,7 +227,7 @@ export function PhoneListDetailPanel({
             type="button"
             variant="secondary"
             size="sm"
-            disabled={list.items.length === 0}
+            disabled={pendingItems.length === 0}
             onClick={() => handleExport("txt-full")}
           >
             <Download className="h-4 w-4" />
@@ -180,21 +247,48 @@ export function PhoneListDetailPanel({
 
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="space-y-3 rounded-2xl border border-border bg-surface p-5">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-foreground">
                 Numéros dans la liste
               </h3>
               <p className="text-xs text-muted">
-                {list.items.length} contact{list.items.length > 1 ? "s" : ""}
+                {pendingItems.length} à appeler · {calledItems.length} appelé
+                {calledItems.length > 1 ? "s" : ""}
               </p>
+            </div>
+            <div className="flex rounded-lg border border-border p-0.5 text-xs">
+              {(
+                [
+                  ["pending", "À appeler"],
+                  ["called", "Appelés"],
+                  ["all", "Tous"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setCallFilter(value)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 font-medium transition-colors",
+                    callFilter === value
+                      ? "bg-brand text-white"
+                      : "text-muted hover:text-foreground"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {list.items.length === 0 ? (
+          {visibleItems.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
-              Aucun numéro pour l&apos;instant. Ajoutez des prospects depuis le
-              panneau de droite.
+              {callFilter === "pending"
+                ? "Tous les contacts de cette liste ont été appelés."
+                : callFilter === "called"
+                  ? "Aucun contact marqué comme appelé pour l'instant."
+                  : "Aucun numéro pour l'instant. Ajoutez des prospects depuis le panneau de droite."}
             </p>
           ) : (
             <div className="max-h-[28rem] overflow-auto rounded-xl border border-border">
@@ -208,26 +302,78 @@ export function PhoneListDetailPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {list.items.map((item) => (
-                    <tr key={item.id} className="border-t border-border">
-                      <td className="px-3 py-2 font-medium text-foreground">
-                        {item.nomEntreprise}
+                  {visibleItems.map((item) => (
+                    <tr
+                      key={item.id}
+                      className={cn(
+                        "border-t border-border",
+                        item.appele && "bg-muted/30"
+                      )}
+                    >
+                      <td className="px-3 py-2">
+                        <p
+                          className={cn(
+                            "font-medium",
+                            item.appele
+                              ? "text-muted line-through"
+                              : "text-foreground"
+                          )}
+                        >
+                          {item.nomEntreprise}
+                        </p>
+                        {item.appele && item.dateAppel && (
+                          <p className="mt-0.5 text-xs text-muted">
+                            Appelé le {formatDate(item.dateAppel)}
+                          </p>
+                        )}
                       </td>
                       <td className="px-3 py-2 font-mono text-foreground">
-                        {item.telephone}
+                        <a
+                          href={`tel:${item.telephone.replace(/\s/g, "")}`}
+                          className={cn(
+                            item.appele
+                              ? "text-muted"
+                              : "text-brand hover:underline"
+                          )}
+                        >
+                          {item.telephone}
+                        </a>
                       </td>
                       <td className="px-3 py-2 text-muted">
                         {item.ville ?? "—"}
                       </td>
-                      <td className="px-3 py-2 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(item.id)}
-                          disabled={isPending}
-                          className="text-xs font-medium text-red-600 hover:underline"
-                        >
-                          Retirer
-                        </button>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col items-end gap-1.5">
+                          {!item.appele ? (
+                            <button
+                              type="button"
+                              onClick={() => handleMarkCalled(item)}
+                              disabled={isPending}
+                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                              A été appelé
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleUnmarkCalled(item)}
+                              disabled={isPending}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-muted hover:text-foreground"
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                              Réactiver
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(item.id)}
+                            disabled={isPending}
+                            className="text-xs font-medium text-red-600 hover:underline"
+                          >
+                            Retirer
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

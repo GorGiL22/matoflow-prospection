@@ -6,7 +6,8 @@ function isPublicPath(pathname: string): boolean {
   return (
     pathname.startsWith("/connexion") ||
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/campaigns/track/open")
+    pathname.startsWith("/api/campaigns/track/open") ||
+    pathname.startsWith("/desabonnement")
   );
 }
 
@@ -39,6 +40,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!connexion|api/auth|api/campaigns/track/open|_next/static|_next/image|favicon.ico).*)",
+    "/((?!connexion|desabonnement|api/auth|api/campaigns/track/open|_next/static|_next/image|favicon.ico).*)",
   ],
 };

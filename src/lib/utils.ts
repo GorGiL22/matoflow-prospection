@@ -18,7 +18,7 @@ export function normalizeWebsiteDomain(url: string | null | undefined): string |
 
 export function normalizeEmail(email: string | null | undefined): string | null {
   if (!email?.trim()) return null;
-  return email.trim().toLowerCase();
+  return decodeHtmlEntities(email.trim()).toLowerCase();
 }
 
 const INVALID_CONTACT_TOKENS = new Set([

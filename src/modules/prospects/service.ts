@@ -14,6 +14,14 @@ export class ProspectService {
     return repository.findAll();
   }
 
+  async listConcepteursFfp() {
+    return repository.findAll({ categorie: "concepteur_ffp" });
+  }
+
+  async countConcepteursFfp() {
+    return repository.countByCategorie("concepteur_ffp");
+  }
+
   async getProspect(id: string) {
     const prospect = await repository.findById(id);
     if (!prospect) {

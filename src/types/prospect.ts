@@ -13,6 +13,10 @@ export const PIPELINE_STATUSES = PROSPECT_STATUSES;
 
 export type ProspectStatus = (typeof PROSPECT_STATUSES)[number];
 
+export const PROSPECT_CATEGORIES = ["paysagiste", "concepteur_ffp"] as const;
+
+export type ProspectCategorie = (typeof PROSPECT_CATEGORIES)[number];
+
 export interface AiScoreDetails {
   is_landscaping_company?: boolean;
   has_maintenance_contracts?: boolean;
@@ -46,6 +50,8 @@ export interface Prospect {
   linkedinGenere: string | null;
   scriptAppelGenere: string | null;
   commentaireCommercial: string | null;
+  categorie: ProspectCategorie;
+  ffpSlug: string | null;
 }
 
 export interface ProspectInsert {
@@ -58,6 +64,9 @@ export interface ProspectInsert {
   description?: string | null;
   unepId?: string | null;
   unepSlug?: string | null;
+  ffpSlug?: string | null;
+  ffpWpId?: string | null;
+  categorie?: ProspectCategorie;
   avisGoogle?: number;
   scoreIA?: number | null;
   statut?: ProspectStatus;
@@ -117,6 +126,16 @@ export interface DashboardStats {
   scoreMoyen: number | null;
 }
 
+export const CATEGORY_LABELS: Record<ProspectCategorie, string> = {
+  paysagiste: "Paysagiste",
+  concepteur_ffp: "Concepteur FFP",
+};
+
+export const CATEGORY_BADGE_CLASSES: Record<ProspectCategorie, string> = {
+  paysagiste: "bg-emerald-100 text-emerald-800",
+  concepteur_ffp: "bg-violet-100 text-violet-800",
+};
+
 export const STATUS_LABELS: Record<ProspectStatus, string> = {
   nouveau: "À contacter",
   contacte: "Contacté",
@@ -158,4 +177,5 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   contenu: "Contenu généré",
   note: "Note ajoutée",
   campagne_email: "Campagne email",
+  appel: "Appel",
 };

@@ -4,6 +4,7 @@ export interface PhoneListSummary {
   dateCreation: string;
   dateModification: string;
   itemCount: number;
+  pendingCount: number;
 }
 
 export interface PhoneListItem {
@@ -14,6 +15,8 @@ export interface PhoneListItem {
   telephone: string;
   ville: string | null;
   dateAjout: string;
+  appele: boolean;
+  dateAppel: string | null;
 }
 
 export interface PhoneListDetail extends PhoneListSummary {

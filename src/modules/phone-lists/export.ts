@@ -62,11 +62,15 @@ export function buildPhoneListExport(
 
 export function downloadPhoneListExport(
   list: Pick<PhoneListDetail, "nom" | "items">,
-  format: PhoneListExportFormat
+  format: PhoneListExportFormat,
+  options?: { onlyPending?: boolean }
 ) {
+  const items = options?.onlyPending
+    ? list.items.filter((item) => !item.appele)
+    : list.items;
   const { content, filename, mimeType } = buildPhoneListExport(
     list.nom,
-    list.items,
+    items,
     format
   );
   const blob = new Blob(["\uFEFF", content], { type: mimeType });

@@ -2,9 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { inputClassName } from "@/components/ui/input";
+import { inputClassName, selectClassName } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { STATUS_SHORT_LABELS, type ProspectStatus } from "@/types/prospect";
+import {
+  CATEGORY_LABELS,
+  STATUS_SHORT_LABELS,
+  type ProspectStatus,
+} from "@/types/prospect";
 import { getScoreColor } from "@/lib/utils";
 
 export interface CampaignProspectCandidate {
@@ -14,20 +18,33 @@ export interface CampaignProspectCandidate {
   ville: string | null;
   scoreIA: number | null;
   statut: string;
+  categorie?: string;
   selectable: boolean;
   unavailableReason: string | null;
 }
+
+type CampaignCategorieFilter = "all" | "paysagiste" | "concepteur_ffp";
 
 interface CampaignProspectPickerProps {
   prospects: CampaignProspectCandidate[];
   selectedIds: string[];
   onChange: (ids: string[]) => void;
+  categorieFilter?: CampaignCategorieFilter;
+  onCategorieFilterChange?: (value: CampaignCategorieFilter) => void;
+}
+
+function getCategorieLabel(categorie?: string): string | null {
+  if (categorie === "CONCEPTEUR_FFP") return CATEGORY_LABELS.concepteur_ffp;
+  if (categorie === "PAYSAGISTE") return CATEGORY_LABELS.paysagiste;
+  return null;
 }
 
 export function CampaignProspectPicker({
   prospects,
   selectedIds,
   onChange,
+  categorieFilter = "all",
+  onCategorieFilterChange,
 }: CampaignProspectPickerProps) {
   const [query, setQuery] = useState("");
 
@@ -96,6 +113,25 @@ export function CampaignProspectPicker({
         </div>
       </div>
 
+      {onCategorieFilterChange && (
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-muted">
+            Catégorie
+          </label>
+          <select
+            value={categorieFilter}
+            onChange={(e) =>
+              onCategorieFilterChange(e.target.value as CampaignCategorieFilter)
+            }
+            className={selectClassName}
+          >
+            <option value="all">Toutes catégories</option>
+            <option value="paysagiste">Paysagistes</option>
+            <option value="concepteur_ffp">Concepteurs FFP</option>
+          </select>
+        </div>
+      )}
+
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
@@ -119,6 +155,7 @@ export function CampaignProspectPicker({
               const status = prospect.statut as ProspectStatus;
               const statusLabel =
                 STATUS_SHORT_LABELS[status] ?? prospect.statut;
+              const categorieLabel = getCategorieLabel(prospect.categorie);
 
               return (
                 <li key={prospect.id}>
@@ -144,6 +181,11 @@ export function CampaignProspectPicker({
                         <Badge variant="default" className="text-[10px]">
                           {statusLabel}
                         </Badge>
+                        {categorieLabel && (
+                          <Badge variant="default" className="text-[10px]">
+                            {categorieLabel}
+                          </Badge>
+                        )}
                         {prospect.scoreIA !== null && (
                           <span
                             className={`text-xs font-semibold ${getScoreColor(prospect.scoreIA)}`}

@@ -12,6 +12,7 @@ const createCampaignSchema = z.object({
   maxDelayMinutes: z.number().int().min(2).max(120).default(CAMPAIGN_DEFAULTS.maxDelayMinutes),
   minScore: z.number().int().min(0).max(100).optional(),
   limit: z.number().int().min(1).max(500).optional(),
+  categorie: z.enum(["paysagiste", "concepteur_ffp"]).optional(),
   prospectIds: z.array(z.string().min(1)).optional(),
   selectionMode: z.enum(["auto", "manual"]).default("auto"),
   contentMode: z.enum(["ai", "generic"]).default("ai"),

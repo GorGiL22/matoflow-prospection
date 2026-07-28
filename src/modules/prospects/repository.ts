@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import {
   stringifyJson,
+  toPrismaCategorie,
   toProspect,
   toProspectActivity,
   toProspectNote,
@@ -20,14 +21,20 @@ import type {
   DashboardStats,
   Prospect,
   ProspectActivity,
+  ProspectCategorie,
   ProspectInsert,
   ProspectNote,
   ProspectQualification,
   ProspectStatus,
   ProspectUpdate,
 } from "@/types/prospect";
-import type { UnepCompanyResult } from "@/types/scraping";
+import type { FfpConcepteurResult, UnepCompanyResult } from "@/types/scraping";
 import { extractUnepSlug } from "@/lib/unep-api";
+import { buildFfpDescription } from "@/modules/scraping/ffp-concepteurs";
+import {
+  normalizeFfpAgencyKey,
+  sanitizeFfpEmail,
+} from "@/modules/scraping/ffp-dedup";
 import { PRIORITY_SCORE_THRESHOLD } from "@/config/constants";
 
 export interface ProspectDeduplicationIndex {
@@ -117,6 +124,11 @@ function buildProspectData(data: ProspectUpdate) {
     ...(data.description !== undefined && { description: data.description }),
     ...(data.unepId !== undefined && { unepId: data.unepId }),
     ...(data.unepSlug !== undefined && { unepSlug: data.unepSlug }),
+    ...(data.ffpSlug !== undefined && { ffpSlug: data.ffpSlug }),
+    ...(data.ffpWpId !== undefined && { ffpWpId: data.ffpWpId }),
+    ...(data.categorie !== undefined && {
+      categorie: toPrismaCategorie(data.categorie),
+    }),
     ...(data.avisGoogle !== undefined &&
       Number.isFinite(data.avisGoogle) && { avisGoogle: data.avisGoogle }),
     ...(data.scoreIA !== undefined && { scoreIA: data.scoreIA }),
@@ -139,9 +151,14 @@ function buildProspectData(data: ProspectUpdate) {
 }
 
 export class ProspectRepository {
+  private buildConcepteurFfpWhere() {
+    return { description: { contains: "FFP:" } };
+  }
+
   async findAll(options?: {
     statut?: ProspectStatus;
     minScore?: number;
+    categorie?: ProspectCategorie;
     limit?: number;
   }): Promise<Prospect[]> {
     const records = await prisma.prospect.findMany({
@@ -150,6 +167,11 @@ export class ProspectRepository {
         ...(options?.minScore !== undefined && {
           scoreIA: { gte: options.minScore },
         }),
+        ...(options?.categorie === "concepteur_ffp"
+          ? this.buildConcepteurFfpWhere()
+          : options?.categorie
+            ? { categorie: toPrismaCategorie(options.categorie) }
+            : {}),
       },
       orderBy: { dateCreation: "desc" },
       ...(options?.limit && { take: options.limit }),
@@ -437,6 +459,134 @@ export class ProspectRepository {
 
     await this.createActivity(record.id, "creation", "Prospect importé depuis UNEP");
     return toProspect(record);
+  }
+
+  async upsertFromFfp(company: FfpConcepteurResult): Promise<{
+    prospect: Prospect;
+    created: boolean;
+  }> {
+    const ffpWpId = company.ffpWpId;
+    const ffpSlug = company.ffpSlug;
+    const description = buildFfpDescription(company);
+    const email = sanitizeFfpEmail(company.email);
+
+    const payload: ProspectInsert = {
+      nomEntreprise: company.nomEntreprise.trim(),
+      telephone: company.telephone,
+      email,
+      siteWeb: company.siteWeb,
+      ville: company.ville,
+      description,
+      ffpSlug,
+      ffpWpId,
+      categorie: "concepteur_ffp",
+    };
+
+    const agencyKey = normalizeFfpAgencyKey(
+      company.nomEntreprise,
+      company.ville
+    );
+
+    const existingByFfp = await prisma.prospect.findFirst({
+      where: {
+        OR: [{ ffpWpId }, { ffpSlug }],
+      },
+    });
+
+    if (existingByFfp) {
+      const prospect = await this.update(existingByFfp.id, payload);
+      return { prospect, created: false };
+    }
+
+    const ffpCandidates = await prisma.prospect.findMany({
+      where: { description: { contains: "FFP:" } },
+      select: {
+        id: true,
+        nomEntreprise: true,
+        ville: true,
+      },
+    });
+
+    const existingByAgency = ffpCandidates.find(
+      (record) =>
+        normalizeFfpAgencyKey(record.nomEntreprise, record.ville) === agencyKey
+    );
+
+    if (existingByAgency) {
+      const prospect = await this.update(existingByAgency.id, payload);
+      return { prospect, created: false };
+    }
+
+    const keys = extractDeduplicationKeys(payload);
+    const orConditions = [
+      keys.emailNormalized
+        ? { emailNormalise: keys.emailNormalized }
+        : null,
+      keys.websiteDomain ? { domaineSite: keys.websiteDomain } : null,
+    ].filter(Boolean) as Array<
+      { emailNormalise: string } | { domaineSite: string }
+    >;
+
+    const existingByKeys =
+      orConditions.length > 0
+        ? await prisma.prospect.findFirst({ where: { OR: orConditions } })
+        : null;
+
+    if (existingByKeys) {
+      const merged = mergeProspectData(toProspect(existingByKeys), payload);
+      const prospect = await this.update(existingByKeys.id, {
+        ...merged,
+        ffpWpId,
+        ffpSlug,
+        categorie: "concepteur_ffp",
+      });
+      return { prospect, created: false };
+    }
+
+    const record = await prisma.prospect.create({
+      data: {
+        nomEntreprise: payload.nomEntreprise,
+        telephone: payload.telephone ?? null,
+        email: payload.email ?? null,
+        siteWeb: payload.siteWeb ?? null,
+        ville: payload.ville ?? null,
+        description: payload.description ?? null,
+        ffpWpId,
+        ffpSlug,
+        categorie: toPrismaCategorie("concepteur_ffp"),
+        avisGoogle: 0,
+        statut: toPrismaStatut("nouveau"),
+        detailsScoreIA: stringifyJson({}),
+        ...buildNormalizedFields(payload),
+      },
+    });
+
+    await this.createActivity(
+      record.id,
+      "creation",
+      "Prospect importé depuis FFP (concepteur)"
+    );
+    return { prospect: toProspect(record), created: true };
+  }
+
+  async countByCategorie(categorie: ProspectCategorie): Promise<number> {
+    if (categorie === "concepteur_ffp") {
+      return prisma.prospect.count({
+        where: this.buildConcepteurFfpWhere(),
+      });
+    }
+
+    try {
+      return await prisma.prospect.count({
+        where: { categorie: toPrismaCategorie(categorie) },
+      });
+    } catch {
+      return categorie === "paysagiste"
+        ? prisma.prospect.count({
+            where: { NOT: this.buildConcepteurFfpWhere() },
+          })
+        : 0;
+    }
   }
 
   async delete(id: string): Promise<void> {

@@ -16,6 +16,7 @@ import { Loader2, Mail, Sparkles, FileText } from "lucide-react";
 
 type SelectionMode = "auto" | "manual";
 type ContentMode = "ai" | "generic";
+type CampaignCategorieFilter = "all" | "paysagiste" | "concepteur_ffp";
 
 interface CampaignCreateFormProps {
   eligibleProspects: CampaignProspectCandidate[];
@@ -29,6 +30,8 @@ export function CampaignCreateForm({
   const [error, setError] = useState<string | null>(null);
   const [selectionMode, setSelectionMode] = useState<SelectionMode>("auto");
   const [contentMode, setContentMode] = useState<ContentMode>("generic");
+  const [categorieFilter, setCategorieFilter] =
+    useState<CampaignCategorieFilter>("all");
   const [selectedProspectIds, setSelectedProspectIds] = useState<string[]>([]);
   const [genericSubject, setGenericSubject] = useState<string>(
     CAMPAIGN_GENERIC_TEMPLATE_DEFAULTS.subject
@@ -62,6 +65,8 @@ export function CampaignCreateForm({
           selectionMode === "auto" && form.get("minScore")
             ? Number(form.get("minScore"))
             : undefined,
+        categorie:
+          categorieFilter === "all" ? undefined : categorieFilter,
         limit:
           selectionMode === "auto"
             ? Number(form.get("limit") || 50)
@@ -229,7 +234,23 @@ export function CampaignCreateForm({
 
         {selectionMode === "auto" ? (
           <>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">
+                  Catégorie
+                </label>
+                <select
+                  value={categorieFilter}
+                  onChange={(e) =>
+                    setCategorieFilter(e.target.value as CampaignCategorieFilter)
+                  }
+                  className={inputClassName}
+                >
+                  <option value="all">Toutes catégories</option>
+                  <option value="paysagiste">Paysagistes</option>
+                  <option value="concepteur_ffp">Concepteurs FFP</option>
+                </select>
+              </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium">
                   Score IA minimum
@@ -258,17 +279,26 @@ export function CampaignCreateForm({
               </div>
             </div>
             <p className="text-xs text-muted">
-              Prospects « À contacter » avec email, triés par score IA. Les
+              Prospects « À contacter » avec email, triés par score IA. Filtrez
+              par catégorie pour cibler les concepteurs FFP séparément. Les
               entreprises déjà contactées ou incluses dans une autre campagne
-              sont exclues. Le statut passe à « Contacté » dès l&apos;envoi
-              réussi de l&apos;email.
+              sont exclues.
             </p>
           </>
         ) : (
           <CampaignProspectPicker
-            prospects={eligibleProspects}
+            prospects={eligibleProspects.filter((prospect) =>
+              categorieFilter === "all"
+                ? true
+                : prospect.categorie ===
+                  (categorieFilter === "concepteur_ffp"
+                    ? "CONCEPTEUR_FFP"
+                    : "PAYSAGISTE")
+            )}
             selectedIds={selectedProspectIds}
             onChange={setSelectedProspectIds}
+            categorieFilter={categorieFilter}
+            onCategorieFilterChange={setCategorieFilter}
           />
         )}
 

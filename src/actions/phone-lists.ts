@@ -62,3 +62,23 @@ export async function removePhoneListItemAction(itemId: string, listId: string) 
   await phoneListService.removeItem(itemId);
   revalidatePhoneListPages(listId);
 }
+
+export async function markPhoneListItemCalledAction(
+  itemId: string,
+  listId: string
+) {
+  itemIdSchema.parse({ itemId, listId });
+  const item = await phoneListService.markItemCalled(itemId);
+  revalidatePhoneListPages(listId);
+  return { item };
+}
+
+export async function unmarkPhoneListItemCalledAction(
+  itemId: string,
+  listId: string
+) {
+  itemIdSchema.parse({ itemId, listId });
+  const item = await phoneListService.unmarkItemCalled(itemId);
+  revalidatePhoneListPages(listId);
+  return { item };
+}

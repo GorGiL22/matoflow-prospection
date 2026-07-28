@@ -3,6 +3,7 @@ import { getCampaignTrackingBaseUrl } from "@/lib/campaign-tracking";
 import { getCampaignEmailTagName } from "@/modules/campaigns/bounce-handler";
 import { campaignRepository } from "@/modules/campaigns/repository";
 import { canSendNow } from "@/modules/campaigns/scheduler";
+import { appendUnsubscribeFooter } from "@/modules/campaigns/unsubscribe";
 
 let queueProcessing = false;
 
@@ -38,11 +39,16 @@ export async function sendCampaignTestEmail(input: {
   subject: string;
   body: string;
 }): Promise<void> {
+  const footer = `
+
+---
+[TEST] Le lien de désabonnement sera inclus dans les vrais envois.`;
+
   await sendEmail({
     to: input.to,
     subject: `[TEST MatoFlow] ${input.subject}`,
-    text: input.body,
-    html: textToHtml(input.body),
+    text: `${input.body.trimEnd()}${footer}`,
+    html: textToHtml(`${input.body.trimEnd()}${footer}`),
   });
 }
 
@@ -79,13 +85,25 @@ export async function processCampaignSendQueue(): Promise<{
       const next = await campaignRepository.claimNextScheduledEmail(campaign.id);
       if (!next?.subject || !next.body || !next.prospect.email) continue;
 
+      if (next.prospect.emailDesabonne) {
+        await campaignRepository.markEmailFailed(
+          next.id,
+          "Prospect désabonné"
+        );
+        continue;
+      }
+
       let resendId: string | undefined;
       try {
-        const html = injectTrackingPixel(textToHtml(next.body), next.id);
+        const { text, htmlExtra } = appendUnsubscribeFooter(next.body, next.id);
+        const html = injectTrackingPixel(
+          `${textToHtml(next.body)}${htmlExtra}`,
+          next.id
+        );
         const sent = await sendEmail({
           to: next.prospect.email,
           subject: next.subject,
-          text: next.body,
+          text,
           html,
           tags: [{ name: getCampaignEmailTagName(), value: next.id }],
         });

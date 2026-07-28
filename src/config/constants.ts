@@ -39,16 +39,25 @@ export const CAMPAIGN_DEFAULTS = {
 export const BOUNCED_EMAILS_PHONE_LIST_NAME = "Emails rebondis — à appeler";
 
 export const CAMPAIGN_GENERIC_TEMPLATE_DEFAULTS = {
-  subject: "Question sur vos devis et planning — {nomEntreprise}",
+  subject: "Comment gérez-vous vos contrats d'entretien ?",
   body: `Bonjour,
 
-Je travaille également dans le secteur du paysage et je me posais une question.
+Je me permets de vous contacter car je développe MatoFlow, un logiciel conçu exclusivement pour les entreprises du paysage.
 
-Aujourd'hui, comment gérez-vous vos devis, vos contrats d'entretien et le planning de vos équipes ?
+Une question : comment gérez-vous aujourd'hui vos contrats d'entretien ?
 
-J'ai développé MatoFlow après avoir constaté que beaucoup d'entreprises jonglaient entre Excel, papier, WhatsApp et plusieurs outils différents.
+Beaucoup d'entreprises utilisent encore Excel, un agenda ou leur mémoire, avec le risque d'oublier des interventions ou des renouvellements.
 
-Je ne sais pas si c'est votre cas, mais si le sujet vous parle, je serais ravi d'échanger 15 minutes avec vous pour avoir votre retour et vous montrer comment d'autres entreprises du paysage s'organisent.
+Autre point : savez-vous réellement combien vous gagnez sur chacun de vos chantiers ? Entre le temps passé, les déplacements et les fournitures, la rentabilité réelle est souvent difficile à mesurer.
+
+MatoFlow permet notamment de :
+
+* gérer les contrats d'entretien sans oubli ;
+* suivre la rentabilité réelle de chaque chantier ;
+* réaliser les devis et les factures en quelques clics ;
+* planifier les équipes et les interventions.
+
+Si cela vous intéresse, je serais ravi de vous faire une démonstration de 15 minutes.
 
 Bien cordialement,
 

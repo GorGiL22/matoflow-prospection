@@ -46,7 +46,11 @@ export function PhoneListsGrid({ lists }: PhoneListsGridProps) {
               </p>
             </div>
             <Badge variant="default">
-              {list.itemCount} num.
+              {list.pendingCount > 0
+                ? `${list.pendingCount} à appeler`
+                : list.itemCount > 0
+                  ? "Terminée"
+                  : "0 num."}
             </Badge>
           </div>
         </Link>

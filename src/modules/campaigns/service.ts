@@ -81,8 +81,19 @@ export class CampaignService {
     return buildCampaignReportSummary(campaign, emails, stats);
   }
 
-  listEligibleProspectsForCampaign() {
-    return campaignRepository.listEligibleProspectsForCampaign();
+  listEligibleProspectsForCampaign(options?: {
+    categorie?: "paysagiste" | "concepteur_ffp";
+  }) {
+    return campaignRepository.listEligibleProspectsForCampaign(
+      options?.categorie
+        ? {
+            categorie:
+              options.categorie === "concepteur_ffp"
+                ? "CONCEPTEUR_FFP"
+                : "PAYSAGISTE",
+          }
+        : undefined
+    );
   }
 
   async createCampaign(input: {
@@ -93,6 +104,7 @@ export class CampaignService {
     minScore?: number;
     limit?: number;
     prospectIds?: string[];
+    categorie?: "paysagiste" | "concepteur_ffp";
     contentMode?: "ai" | "generic";
     genericSubjectTemplate?: string;
     genericBodyTemplate?: string;
@@ -109,6 +121,7 @@ export class CampaignService {
       minScore,
       limit,
       prospectIds,
+      categorie,
     } = input;
 
     const campaign = await campaignRepository.createCampaign({
@@ -138,6 +151,12 @@ export class CampaignService {
         minScore,
         requireEmail: true,
         limit,
+        categorie:
+          categorie === "concepteur_ffp"
+            ? "CONCEPTEUR_FFP"
+            : categorie === "paysagiste"
+              ? "PAYSAGISTE"
+              : undefined,
       });
     return {
       campaign,

@@ -6,6 +6,7 @@ export function toPhoneListSummary(record: {
   dateCreation: Date;
   dateModification: Date;
   _count: { items: number };
+  pendingCount?: number;
 }): PhoneListSummary {
   return {
     id: record.id,
@@ -13,6 +14,7 @@ export function toPhoneListSummary(record: {
     dateCreation: record.dateCreation.toISOString(),
     dateModification: record.dateModification.toISOString(),
     itemCount: record._count.items,
+    pendingCount: record.pendingCount ?? record._count.items,
   };
 }
 
@@ -24,6 +26,8 @@ export function toPhoneListItem(record: {
   telephone: string;
   ville: string | null;
   dateAjout: Date;
+  appele: boolean;
+  dateAppel: Date | null;
 }): PhoneListItem {
   return {
     id: record.id,
@@ -33,5 +37,7 @@ export function toPhoneListItem(record: {
     telephone: record.telephone,
     ville: record.ville,
     dateAjout: record.dateAjout.toISOString(),
+    appele: record.appele,
+    dateAppel: record.dateAppel?.toISOString() ?? null,
   };
 }

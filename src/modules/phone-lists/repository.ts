@@ -9,18 +9,42 @@ import {
 } from "@/lib/mappers/phone-list";
 import type {
   PhoneListDetail,
+  PhoneListItem,
   PhoneListProspectCandidate,
   PhoneListSummary,
 } from "@/types/phone-list";
 import { toProspect } from "@/lib/mappers/prospect";
 
 export class PhoneListRepository {
+  private async pendingCountByListIds(
+    listIds: string[]
+  ): Promise<Map<string, number>> {
+    if (listIds.length === 0) return new Map();
+
+    const rows = await prisma.phoneListItem.groupBy({
+      by: ["listId"],
+      where: { listId: { in: listIds }, appele: false },
+      _count: { _all: true },
+    });
+
+    return new Map(rows.map((row) => [row.listId, row._count._all]));
+  }
+
   async findAll(): Promise<PhoneListSummary[]> {
     const lists = await prisma.phoneList.findMany({
       orderBy: { dateModification: "desc" },
       include: { _count: { select: { items: true } } },
     });
-    return lists.map(toPhoneListSummary);
+    const pendingByList = await this.pendingCountByListIds(
+      lists.map((list) => list.id)
+    );
+
+    return lists.map((list) =>
+      toPhoneListSummary({
+        ...list,
+        pendingCount: pendingByList.get(list.id) ?? 0,
+      })
+    );
   }
 
   async findById(id: string): Promise<PhoneListDetail | null> {
@@ -28,13 +52,17 @@ export class PhoneListRepository {
       where: { id },
       include: {
         _count: { select: { items: true } },
-        items: { orderBy: { dateAjout: "desc" } },
+        items: {
+          orderBy: [{ appele: "asc" }, { dateAjout: "desc" }],
+        },
       },
     });
     if (!list) return null;
 
+    const pendingCount = list.items.filter((item) => !item.appele).length;
+
     return {
-      ...toPhoneListSummary(list),
+      ...toPhoneListSummary({ ...list, pendingCount }),
       items: list.items.map(toPhoneListItem),
     };
   }
@@ -119,7 +147,12 @@ export class PhoneListRepository {
     const existing = await prisma.phoneListItem.findFirst({
       where: { listId, prospectId },
     });
-    if (existing) return { added: false, reason: "Déjà dans la liste" };
+    if (existing) {
+      if (existing.appele) {
+        return { added: false, reason: "Déjà appelé dans cette liste" };
+      }
+      return { added: false, reason: "Déjà dans la liste" };
+    }
 
     await prisma.phoneListItem.create({
       data: {
@@ -144,6 +177,65 @@ export class PhoneListRepository {
       where: { id: item.listId },
       data: { dateModification: new Date() },
     });
+  }
+
+  async markItemCalled(itemId: string): Promise<PhoneListItem> {
+    const item = await prisma.phoneListItem.findUnique({
+      where: { id: itemId },
+      include: { list: { select: { nom: true } } },
+    });
+    if (!item) {
+      throw new Error("Contact introuvable");
+    }
+    if (item.appele) {
+      return toPhoneListItem(item);
+    }
+
+    const now = new Date();
+    const updated = await prisma.phoneListItem.update({
+      where: { id: itemId },
+      data: { appele: true, dateAppel: now },
+    });
+
+    if (item.prospectId) {
+      await prisma.prospect.update({
+        where: { id: item.prospectId },
+        data: { dateDernierAppel: now },
+      });
+      await prisma.activite.create({
+        data: {
+          prospectId: item.prospectId,
+          type: "appel",
+          description: `Marqué comme appelé — liste « ${item.list.nom} »`,
+        },
+      });
+    }
+
+    await prisma.phoneList.update({
+      where: { id: item.listId },
+      data: { dateModification: now },
+    });
+
+    return toPhoneListItem(updated);
+  }
+
+  async unmarkItemCalled(itemId: string): Promise<PhoneListItem> {
+    const item = await prisma.phoneListItem.findUnique({ where: { id: itemId } });
+    if (!item) {
+      throw new Error("Contact introuvable");
+    }
+
+    const updated = await prisma.phoneListItem.update({
+      where: { id: itemId },
+      data: { appele: false, dateAppel: null },
+    });
+
+    await prisma.phoneList.update({
+      where: { id: item.listId },
+      data: { dateModification: new Date() },
+    });
+
+    return toPhoneListItem(updated);
   }
 
   async listProspectCandidates(listId: string): Promise<PhoneListProspectCandidate[]> {

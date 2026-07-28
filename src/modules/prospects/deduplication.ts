@@ -5,7 +5,7 @@ import {
 } from "@/lib/utils";
 import type { UnepCompanySummary } from "@/lib/unep-api";
 import { extractUnepSlug } from "@/lib/unep-api";
-import type { Prospect, ProspectInsert } from "@/types/prospect";
+import type { Prospect, ProspectCategorie, ProspectInsert } from "@/types/prospect";
 
 export interface DeduplicationKeys {
   websiteDomain: string | null;
@@ -141,5 +141,6 @@ export function mergeProspectData(
     ),
     scoreIA: incoming.scoreIA ?? existing.scoreIA,
     detailsScoreIA: incoming.detailsScoreIA ?? existing.detailsScoreIA,
+    categorie: incoming.categorie ?? existing.categorie,
   };
 }

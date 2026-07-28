@@ -18,6 +18,11 @@ enum StatutProspect {
   REFUSE
 }
 
+enum ProspectCategorie {
+  PAYSAGISTE
+  CONCEPTEUR_FFP
+}
+
 model Prospect {
   id               String         @id @default(cuid())
   nomEntreprise    String
@@ -38,6 +43,9 @@ model Prospect {
   domaineSite       String? @unique
   unepId            String? @unique
   unepSlug          String?
+  ffpWpId           String? @unique
+  ffpSlug           String? @unique
+  categorie         ProspectCategorie @default(PAYSAGISTE)
   detailsScoreIA    String?
   emailGenere       String?
   linkedinGenere    String?
@@ -52,6 +60,8 @@ model Prospect {
   dateDernierAppel   DateTime?
   dateRappel         DateTime?
   commercialAssigne  String?
+  emailDesabonne     Boolean   @default(false)
+  emailDesabonneAt   DateTime?
 
   notes          Note[]
   activites      Activite[]
@@ -63,6 +73,9 @@ model Prospect {
   @@index([scoreIA])
   @@index([dateCreation])
   @@index([unepSlug])
+  @@index([categorie])
+  @@index([ffpSlug])
+  @@index([emailDesabonne])
 }
 
 model Note {
@@ -218,10 +231,13 @@ model PhoneListItem {
   telephone     String
   ville         String?
   dateAjout     DateTime  @default(now())
+  appele        Boolean   @default(false)
+  dateAppel     DateTime?
 
   list     PhoneList @relation(fields: [listId], references: [id], onDelete: Cascade)
   prospect Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
 
   @@unique([listId, prospectId])
   @@index([listId, dateAjout])
+  @@index([listId, appele])
 }

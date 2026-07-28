@@ -28,6 +28,30 @@ function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function buildCampaignCategorieWhere(
+  categorie?: "PAYSAGISTE" | "CONCEPTEUR_FFP"
+) {
+  if (!categorie) return {};
+  if (categorie === "CONCEPTEUR_FFP") {
+    return { description: { contains: "FFP:" } };
+  }
+  return { categorie };
+}
+
+/** Évite `notIn` avec des milliers d'IDs (limite SQLite ~999 paramètres). */
+function buildProspectBlockedByOtherCampaignWhere(campaignId: string) {
+  return {
+    campaignEmails: {
+      some: {
+        OR: [
+          { statut: { in: ["SENT", "OPENED", "REPLIED", "SCHEDULED"] } },
+          { statut: "DRAFT", campaignId: { not: campaignId } },
+        ],
+      },
+    },
+  };
+}
+
 const PROSPECT_STATUSES_EXCLUDED_FROM_CAMPAIGN = new Set([
   "CONTACTE",
   "RELANCE",
@@ -246,53 +270,46 @@ export class CampaignRepository {
       minScore?: number;
       requireEmail?: boolean;
       limit?: number;
+      categorie?: "PAYSAGISTE" | "CONCEPTEUR_FFP";
     }
   ): Promise<{ added: number; skippedAlreadyContacted: number }> {
-    const alreadyTargeted = await prisma.campaignEmail.findMany({
-      where: {
-        OR: [
-          { statut: { in: ["SENT", "OPENED", "REPLIED", "SCHEDULED"] } },
-          { statut: "DRAFT", campaignId: { not: campaignId } },
-        ],
-      },
-      select: { prospectId: true },
-    });
-    const excludedIds = new Set(alreadyTargeted.map((row) => row.prospectId));
+    const filterWhere = {
+      ...(filters.minScore !== undefined
+        ? { scoreIA: { gte: filters.minScore } }
+        : {}),
+      ...(buildCampaignCategorieWhere(filters.categorie)),
+      ...(filters.requireEmail !== false
+        ? { email: { not: null }, emailNormalise: { not: null } }
+        : {}),
+    };
 
     const skippedAlreadyContacted = await prisma.prospect.count({
       where: {
-        ...(filters.minScore !== undefined
-          ? { scoreIA: { gte: filters.minScore } }
-          : {}),
-        ...(filters.requireEmail !== false
-          ? { email: { not: null }, emailNormalise: { not: null } }
-          : {}),
+        ...filterWhere,
         OR: [
           { statut: { not: "NOUVEAU" } },
-          { id: { in: [...excludedIds] } },
+          { emailDesabonne: true },
+          buildProspectBlockedByOtherCampaignWhere(campaignId),
         ],
       },
     });
 
+    const limit = filters.limit ?? 200;
     const candidates = await prisma.prospect.findMany({
       where: {
-        ...(filters.minScore !== undefined
-          ? { scoreIA: { gte: filters.minScore } }
-          : {}),
-        ...(filters.requireEmail !== false
-          ? { email: { not: null }, emailNormalise: { not: null } }
-          : {}),
+        ...filterWhere,
         statut: "NOUVEAU",
-        id: { notIn: [...excludedIds] },
+        emailDesabonne: false,
+        NOT: buildProspectBlockedByOtherCampaignWhere(campaignId),
       },
-      take: (filters.limit ?? 200) + excludedIds.size,
+      take: limit * 2,
       orderBy: { scoreIA: "desc" },
     });
 
     let added = 0;
 
     for (const prospect of candidates) {
-      if (added >= (filters.limit ?? 200)) break;
+      if (added >= limit) break;
       if (!prospect.email?.trim()) continue;
 
       try {
@@ -339,7 +356,9 @@ export class CampaignRepository {
     return { selectable: true, unavailableReason: null };
   }
 
-  async listEligibleProspectsForCampaign(): Promise<
+  async listEligibleProspectsForCampaign(options?: {
+    categorie?: "PAYSAGISTE" | "CONCEPTEUR_FFP";
+  }): Promise<
     Array<{
       id: string;
       nomEntreprise: string;
@@ -347,6 +366,7 @@ export class CampaignRepository {
       ville: string | null;
       scoreIA: number | null;
       statut: string;
+      categorie: string;
       selectable: boolean;
       unavailableReason: string | null;
     }>
@@ -357,6 +377,12 @@ export class CampaignRepository {
       where: {
         email: { not: null },
         emailNormalise: { not: null },
+        emailDesabonne: false,
+        ...(options?.categorie === "CONCEPTEUR_FFP"
+          ? buildCampaignCategorieWhere("CONCEPTEUR_FFP")
+          : options?.categorie
+            ? { categorie: options.categorie }
+            : {}),
       },
       orderBy: [{ scoreIA: "desc" }, { dateCreation: "desc" }],
       select: {
@@ -366,6 +392,7 @@ export class CampaignRepository {
         ville: true,
         scoreIA: true,
         statut: true,
+        categorie: true,
       },
     });
 
@@ -384,6 +411,7 @@ export class CampaignRepository {
           ville: record.ville,
           scoreIA: record.scoreIA,
           statut: record.statut.toLowerCase(),
+          categorie: record.categorie,
           selectable: eligibility.selectable,
           unavailableReason: eligibility.unavailableReason,
         };
@@ -403,7 +431,13 @@ export class CampaignRepository {
 
     const prospects = await prisma.prospect.findMany({
       where: { id: { in: uniqueIds } },
-      select: { id: true, email: true, emailNormalise: true, statut: true },
+      select: {
+        id: true,
+        email: true,
+        emailNormalise: true,
+        statut: true,
+        emailDesabonne: true,
+      },
     });
 
     let added = 0;
@@ -411,6 +445,10 @@ export class CampaignRepository {
 
     for (const prospect of prospects) {
       if (!prospect.email?.trim() || !prospect.emailNormalise) {
+        skipped += 1;
+        continue;
+      }
+      if (prospect.emailDesabonne) {
         skipped += 1;
         continue;
       }
@@ -565,8 +603,10 @@ export class CampaignRepository {
         dateModification: { lt: cutoff },
       },
       data: {
-        statut: "FAILED",
-        errorMessage: "Envoi interrompu (délai dépassé)",
+        // Si l'onglet ou la machine disparaît pendant l'envoi, on remet
+        // simplement l'email en file pour reprise au prochain passage.
+        statut: "SCHEDULED",
+        errorMessage: "Envoi interrompu temporairement, reprise automatique prévue",
       },
     });
   }

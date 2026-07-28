@@ -30,6 +30,14 @@ export class PhoneListService {
     return repository.removeItem(itemId);
   }
 
+  markItemCalled(itemId: string) {
+    return repository.markItemCalled(itemId);
+  }
+
+  unmarkItemCalled(itemId: string) {
+    return repository.unmarkItemCalled(itemId);
+  }
+
   listProspectCandidates(listId: string) {
     return repository.listProspectCandidates(listId);
   }
